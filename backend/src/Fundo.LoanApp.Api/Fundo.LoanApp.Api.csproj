@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Fundo.LoanApp.Infrastructure\Fundo.LoanApp.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
