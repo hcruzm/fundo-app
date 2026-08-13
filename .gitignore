@@ -1,0 +1,10 @@
+bin/
+obj/
+node_modules/
+.next/
+out/
+*.user
+.DS_Store
+.env
+.env.local
+TestResults/
