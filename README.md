@@ -9,7 +9,7 @@ SSN — has those same two records updated in place rather than duplicated.
 
 ## Demo
 
-> **TODO — replace with the Loom link before submitting.**
+**[Watch the walkthrough](https://www.loom.com/share/6d078d8ed30249048750b3716e05fbab)** — an approved application, both denial rules, a returning customer updating in place, and the data arriving at the external service.
 
 ## Prerequisites
 
