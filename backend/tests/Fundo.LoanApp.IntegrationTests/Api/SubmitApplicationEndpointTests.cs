@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using Fundo.LoanApp.Infrastructure.ExternalService;
 using Fundo.LoanApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -140,6 +141,42 @@ public class SubmitApplicationEndpointTests(PostgresFixture fixture)
     public async Task An_empty_json_object_returns_400_not_500()
     {
         var response = await client.PostAsJsonAsync("/api/applications", new { });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Syntactically_invalid_json_returns_400_not_500()
+    {
+        var response = await client.PostAsync(
+            "/api/applications",
+            new StringContent("{\"firstName\": \"Ada\",", Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var problem = await response.Content.ReadAsStringAsync();
+        Assert.Contains("title", problem, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Exception", problem, StringComparison.Ordinal);
+        Assert.DoesNotContain(" at ", problem, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_field_with_the_wrong_json_type_returns_400_not_500()
+    {
+        var response = await client.PostAsync(
+            "/api/applications",
+            new StringContent(
+                "{\"requestedAmount\":\"not-a-number\"}", Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task An_empty_body_returns_400_not_500()
+    {
+        var response = await client.PostAsync(
+            "/api/applications",
+            new StringContent(string.Empty, Encoding.UTF8, "application/json"));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
