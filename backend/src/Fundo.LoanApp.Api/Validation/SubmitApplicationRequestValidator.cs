@@ -7,6 +7,8 @@ public sealed class SubmitApplicationRequestValidator : AbstractValidator<Submit
 {
     public SubmitApplicationRequestValidator()
     {
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
         RuleFor(r => r.FirstName).NotEmpty().MaximumLength(100);
         RuleFor(r => r.LastName).NotEmpty().MaximumLength(100);
         RuleFor(r => r.CompanyName).NotEmpty().MaximumLength(200);

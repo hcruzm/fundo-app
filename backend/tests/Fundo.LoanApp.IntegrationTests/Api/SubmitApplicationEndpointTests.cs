@@ -120,6 +120,29 @@ public class SubmitApplicationEndpointTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task A_payload_with_no_ssn_field_returns_400_not_500()
+    {
+        var response = await client.PostAsJsonAsync("/api/applications", new
+        {
+            firstName = "Ada",
+            lastName = "Lovelace",
+            companyName = "Analytical Engines LLC",
+            requestedAmount = 25_000m,
+            address = new { street = "1 Byron Street", city = "Austin", state = "TX", postalCode = "78701" }
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task An_empty_json_object_returns_400_not_500()
+    {
+        var response = await client.PostAsJsonAsync("/api/applications", new { });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Getting_a_stored_application_returns_the_masked_ssn_and_never_the_full_value()
     {
         var created = await client.PostAsJsonAsync("/api/applications", Payload());
