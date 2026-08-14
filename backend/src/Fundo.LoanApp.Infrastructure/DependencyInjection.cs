@@ -6,6 +6,7 @@ using Fundo.LoanApp.Domain.Customers;
 using Fundo.LoanApp.Domain.Decisions;
 using Fundo.LoanApp.Domain.Decisions.Rules;
 using Fundo.LoanApp.Domain.Events;
+using Fundo.LoanApp.Infrastructure.ExternalService;
 using Fundo.LoanApp.Infrastructure.Messaging;
 using Fundo.LoanApp.Infrastructure.Persistence;
 using Fundo.LoanApp.Infrastructure.Persistence.Repositories;
@@ -13,6 +14,7 @@ using Fundo.LoanApp.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Fundo.LoanApp.Infrastructure;
 
@@ -49,6 +51,20 @@ public static class DependencyInjection
         services.AddSingleton(Channel.CreateUnbounded<CustomerUpsertedEvent>());
         services.AddScoped<IEventPublisher, ChannelEventPublisher>();
         services.AddHostedService<DatabaseInitializer>();
+
+        services.AddScoped<CustomerUpsertedDispatcher>();
+
+        services.Configure<ExternalServiceOptions>(configuration.GetSection(ExternalServiceOptions.SectionName));
+
+        services.AddHttpClient<ExternalServiceClient>((provider, client) =>
+            {
+                var options = provider.GetRequiredService<IOptions<ExternalServiceOptions>>().Value;
+                client.BaseAddress = new Uri(options.BaseUrl);
+                client.Timeout = TimeSpan.FromSeconds(10);
+            })
+            .AddStandardResilienceHandler();
+
+        services.AddHostedService<ExternalServiceWorker>();
 
         return services;
     }
