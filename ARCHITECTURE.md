@@ -19,7 +19,7 @@ fundo-loan-application/
 │   │   ├── Fundo.LoanApp.Infrastructure/   EF Core, HTTP client, channel, hashing
 │   │   └── Fundo.LoanApp.Api/              minimal API, validation, composition root
 │   └── tests/
-│       ├── Fundo.LoanApp.UnitTests/        38 tests, no I/O
+│       ├── Fundo.LoanApp.UnitTests/        39 tests, no I/O
 │       └── Fundo.LoanApp.IntegrationTests/ 14 tests, Testcontainers PostgreSQL
 ├── frontend/                       Next.js App Router, shadcn/ui, react-hook-form + zod
 └── mock-service/                   single-file minimal API standing in for a third party
