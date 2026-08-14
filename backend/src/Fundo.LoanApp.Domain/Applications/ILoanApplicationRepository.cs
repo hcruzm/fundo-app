@@ -6,5 +6,7 @@ public interface ILoanApplicationRepository
 
     Task<LoanApplication?> GetByCustomerIdAsync(Guid customerId, CancellationToken ct);
 
+    Task<IReadOnlyList<LoanApplication>> GetAllAsync(CancellationToken ct);
+
     void Add(LoanApplication application);
 }

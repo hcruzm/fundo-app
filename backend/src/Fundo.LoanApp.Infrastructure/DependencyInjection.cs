@@ -49,6 +49,7 @@ public static class DependencyInjection
 
         services.AddScoped<SubmitLoanApplicationHandler>();
         services.AddScoped<GetLoanApplicationHandler>();
+        services.AddScoped<ListLoanApplicationsHandler>();
 
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(Channel.CreateUnbounded<CustomerUpsertedEvent>());

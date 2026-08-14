@@ -37,6 +37,9 @@ public class SubmitLoanApplicationHandlerTests
 
         public Task<Customer?> GetByIdAsync(Guid id, CancellationToken ct) => Task.FromResult(existing);
 
+        public Task<IReadOnlyList<Customer>> GetAllAsync(CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<Customer>>(existing is null ? [] : [existing]);
+
         public void Add(Customer customer) => Added.Add(customer);
     }
 
@@ -47,6 +50,9 @@ public class SubmitLoanApplicationHandlerTests
         public Task<LoanApplication?> GetByIdAsync(Guid id, CancellationToken ct) => Task.FromResult(existing);
 
         public Task<LoanApplication?> GetByCustomerIdAsync(Guid customerId, CancellationToken ct) => Task.FromResult(existing);
+
+        public Task<IReadOnlyList<LoanApplication>> GetAllAsync(CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<LoanApplication>>(existing is null ? [] : [existing]);
 
         public void Add(LoanApplication application) => Added.Add(application);
     }

@@ -18,6 +18,9 @@ public class CustomerUpsertedDispatcherTests
         public Task<Customer?> GetByIdAsync(Guid id, CancellationToken ct) =>
             Task.FromResult(id == customer.Id ? customer : null);
 
+        public Task<IReadOnlyList<Customer>> GetAllAsync(CancellationToken ct) =>
+            throw new NotSupportedException();
+
         public void Add(Customer customer) => throw new NotSupportedException();
     }
 
@@ -28,6 +31,9 @@ public class CustomerUpsertedDispatcherTests
 
         public Task<LoanApplication?> GetByCustomerIdAsync(Guid customerId, CancellationToken ct) =>
             Task.FromResult(customerId == application.CustomerId ? application : null);
+
+        public Task<IReadOnlyList<LoanApplication>> GetAllAsync(CancellationToken ct) =>
+            throw new NotSupportedException();
 
         public void Add(LoanApplication application) => throw new NotSupportedException();
     }

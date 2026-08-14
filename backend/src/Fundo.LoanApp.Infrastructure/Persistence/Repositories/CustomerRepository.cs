@@ -11,5 +11,8 @@ public sealed class CustomerRepository(LoanAppDbContext db) : ICustomerRepositor
     public Task<Customer?> GetByIdAsync(Guid id, CancellationToken ct) =>
         db.Customers.SingleOrDefaultAsync(c => c.Id == id, ct);
 
+    public async Task<IReadOnlyList<Customer>> GetAllAsync(CancellationToken ct) =>
+        await db.Customers.AsNoTracking().ToListAsync(ct);
+
     public void Add(Customer customer) => db.Customers.Add(customer);
 }
