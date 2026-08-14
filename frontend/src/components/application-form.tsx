@@ -12,6 +12,22 @@ import { Input } from "@/components/ui/input";
 import { submitApplication } from "@/lib/api";
 import { applicationSchema, type ApplicationFormValues } from "@/lib/schema";
 
+// Reformats the whole value on every keystroke rather than inserting separators
+// in place, so backspacing across a dash behaves the way a typist expects.
+function formatSsn(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 9);
+
+  if (digits.length <= 3) {
+    return digits;
+  }
+
+  if (digits.length <= 5) {
+    return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  }
+
+  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+}
+
 export function ApplicationForm() {
   const router = useRouter();
 
@@ -185,7 +201,14 @@ export function ApplicationForm() {
                   <FormItem>
                     <FormLabel>SSN</FormLabel>
                     <FormControl>
-                      <Input placeholder="123-45-6789" autoComplete="off" {...field} />
+                      <Input
+                        placeholder="123-45-6789"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        maxLength={11}
+                        {...field}
+                        onChange={(event) => field.onChange(formatSsn(event.target.value))}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
