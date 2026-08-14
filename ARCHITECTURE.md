@@ -20,7 +20,7 @@ fundo-loan-application/
 │   │   └── Fundo.LoanApp.Api/              minimal API, validation, composition root
 │   └── tests/
 │       ├── Fundo.LoanApp.UnitTests/        39 tests, no I/O
-│       └── Fundo.LoanApp.IntegrationTests/ 17 tests, Testcontainers PostgreSQL
+│       └── Fundo.LoanApp.IntegrationTests/ 20 tests, Testcontainers PostgreSQL
 ├── frontend/                       Next.js App Router, shadcn/ui, react-hook-form + zod
 └── mock-service/                   single-file minimal API standing in for a third party
 ```

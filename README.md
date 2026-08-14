@@ -55,19 +55,21 @@ To stop everything: `docker compose down` (add `-v` to drop the database volume 
 ## Tests
 
 ```bash
-# Everything: 56 tests. Requires Docker.
+# Everything: 59 tests. Requires Docker.
 dotnet test backend/Fundo.LoanApp.sln
 
 # Fast suite: 39 unit tests, no Docker, no I/O.
 dotnet test backend/tests/Fundo.LoanApp.UnitTests
 
-# Integration suite: 17 tests. Requires Docker.
+# Integration suite: 20 tests. Requires Docker.
 dotnet test backend/tests/Fundo.LoanApp.IntegrationTests
 ```
 
 The integration tests need Docker because they start a real PostgreSQL container through
 Testcontainers and run the migrations against it. The EF Core in-memory provider is not used
-anywhere — the transaction and rollback tests would prove nothing against it.
+anywhere — the transaction and rollback tests would prove nothing against it. They run fully
+isolated from the mock service on port 5100: the test host overrides `ExternalService:BaseUrl`
+to a dead port, so no integration test ever calls it.
 
 Frontend checks:
 
