@@ -19,8 +19,8 @@ fundo-loan-application/
 │   │   ├── Fundo.LoanApp.Infrastructure/   EF Core, HTTP client, channel, hashing
 │   │   └── Fundo.LoanApp.Api/              minimal API, validation, composition root
 │   └── tests/
-│       ├── Fundo.LoanApp.UnitTests/        39 tests, no I/O
-│       └── Fundo.LoanApp.IntegrationTests/ 20 tests, Testcontainers PostgreSQL
+│       ├── Fundo.LoanApp.UnitTests/        44 tests, no I/O
+│       └── Fundo.LoanApp.IntegrationTests/ 24 tests, Testcontainers PostgreSQL
 ├── frontend/                       Next.js App Router, shadcn/ui, react-hook-form + zod
 └── mock-service/                   single-file minimal API standing in for a third party
 ```
@@ -28,7 +28,7 @@ fundo-loan-application/
 | Project | Depends on | Holds |
 |---|---|---|
 | `Fundo.LoanApp.Domain` | nothing — the `.csproj` has no `PackageReference` at all | `Customer`, `LoanApplication`, `Address`, `SsnHash`, `Decision`, `RuleOutcome`, `DecisionEngine`, `IDenialRule` and the two rules, `CustomerUpsertedEvent`, and the three repository interfaces |
-| `Fundo.LoanApp.Application` | Domain | `SubmitLoanApplicationHandler`, `GetLoanApplicationHandler`, their commands and DTOs, and the ports `IUnitOfWork`, `IEventPublisher`, `ISsnHasher` |
+| `Fundo.LoanApp.Application` | Domain | `SubmitLoanApplicationHandler`, `GetLoanApplicationHandler`, `ListLoanApplicationsHandler`, their commands and DTOs, and the ports `IUnitOfWork`, `IEventPublisher`, `ISsnHasher` |
 | `Fundo.LoanApp.Infrastructure` | Application (and Domain through it) | `LoanAppDbContext`, entity configurations, migrations, the three repositories, `EfUnitOfWork`, `HmacSsnHasher`, `ChannelEventPublisher`, `ExternalServiceWorker`, `CustomerUpsertedDispatcher`, `ExternalServiceClient`, `DatabaseInitializer`, `BlacklistSeeder`, and the `AddInfrastructure` registration extension |
 | `Fundo.LoanApp.Api` | Infrastructure | endpoint group, request contracts, FluentValidation validators and the validation filter, `GlobalExceptionHandler`, OpenAPI + Scalar, CORS |
 
@@ -350,10 +350,15 @@ this well.
 | **Authentication and authorization** | The challenge states it is not required, and a public loan form is genuinely anonymous at the point of submission. The endpoint that would need protection is `GET /api/applications/{id}`: anyone holding the id can read the record, including the address and the masked SSN. UUIDv7 makes the ids impractical to enumerate, which is not the same thing as access control. The real work is an identity provider plus an owner check on the read endpoint. |
 | **Rate limiting** | Without authentication or a public deployment there is nothing to protect and no threat model to size a limit against. It is one `builder.Services.AddRateLimiter(...)` and one `.RequireRateLimiting(...)` when there is. |
 | **A real message broker** | RabbitMQ or Kafka would add a container, a connection lifecycle, consumer configuration and a serialization contract to move one event type between two processes on the same machine. The `IEventPublisher` port is the seam: swapping the implementation does not touch the handler. |
-| **Pagination** | Nothing lists anything. `GET /api/applications/{id}` returns one record by id. The mock service's `GET /api/customers` returns everything, which is fine for a demo fixture and would not be fine for a real endpoint. |
+| **Pagination on `GET /api/applications`** | It returns every stored application in one response. That is fine for a demo with a handful of rows and would not be fine once the table grows; a real deployment needs `?page=` or keyset pagination before this is exposed at scale. |
 | **Multi-application history per customer** | See the one-to-one assumption in section 5. Changing it means dropping the unique index, adding a "current application" concept or an explicit status per application, and deciding what a returning applicant's second submission means — a new application or an amendment to the open one. That is a product question, not a schema question. |
 | **Internationalization** | One locale, US states, USD. |
 | **Storing denied applications** | See section 5. There is no audit or reporting requirement here; adding the rows without the product decisions behind them would be guessing. |
+
+`GET /api/applications` returns every applicant's data with no authentication. It exists so the
+demo can show stored state, and because the challenge does not require authentication. In
+production it would need authentication and role-based authorization; it is the one endpoint in
+this system that would be unacceptable to expose as it stands.
 
 ### Would need to change before a real deployment
 

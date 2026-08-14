@@ -55,13 +55,13 @@ To stop everything: `docker compose down` (add `-v` to drop the database volume 
 ## Tests
 
 ```bash
-# Everything: 59 tests. Requires Docker.
+# Everything: 68 tests. Requires Docker.
 dotnet test backend/Fundo.LoanApp.sln
 
-# Fast suite: 39 unit tests, no Docker, no I/O.
+# Fast suite: 44 unit tests, no Docker, no I/O.
 dotnet test backend/tests/Fundo.LoanApp.UnitTests
 
-# Integration suite: 20 tests. Requires Docker.
+# Integration suite: 24 tests. Requires Docker.
 dotnet test backend/tests/Fundo.LoanApp.IntegrationTests
 ```
 
@@ -136,6 +136,7 @@ line per `CREATE` or `UPDATE`.
 |---|---|---|
 | `POST` | `/api/applications` | `201 Created` with `Location` on approval, `200 OK` on denial, `400` `ValidationProblemDetails` on a malformed body |
 | `GET` | `/api/applications/{id}` | `200 OK` with the application, its customer and the masked SSN (`•••-••-6789`), `404` otherwise |
+| `GET` | `/api/applications` | `200 OK` with every stored application, most recently updated first |
 | `GET` | `/health` | `200 OK` |
 
 Every non-success response is an RFC 9457 `ProblemDetails`. Unhandled exceptions return `500`
