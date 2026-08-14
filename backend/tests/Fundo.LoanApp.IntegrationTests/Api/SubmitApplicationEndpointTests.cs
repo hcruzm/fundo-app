@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using Fundo.LoanApp.Infrastructure.ExternalService;
 using Fundo.LoanApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Fundo.LoanApp.IntegrationTests.Api;
 
@@ -164,6 +166,20 @@ public class SubmitApplicationEndpointTests(PostgresFixture fixture)
         var response = await client.GetAsync($"/api/applications/{Guid.NewGuid()}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public void The_external_service_client_honors_the_test_configuration_override()
+    {
+        // Guards against DependencyInjection.AddInfrastructure reading
+        // ExternalService:BaseUrl eagerly at registration time, which would
+        // capture appsettings.json's value instead of this factory's override
+        // and make tests silently call a real external service.
+        using var scope = factory.Services.CreateScope();
+        var httpClientFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
+        var externalServiceHttpClient = httpClientFactory.CreateClient(nameof(ExternalServiceClient));
+
+        Assert.Equal(new Uri("http://localhost:59999/"), externalServiceHttpClient.BaseAddress);
     }
 
     private sealed record SubmitApplicationResponseDto(

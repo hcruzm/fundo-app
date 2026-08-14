@@ -30,9 +30,13 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<BlacklistSeeder>();
 
-        var hashKey = configuration["Security:SsnHashKey"]
-            ?? throw new InvalidOperationException("Security:SsnHashKey is not configured.");
-        services.AddSingleton<ISsnHasher>(new HmacSsnHasher(hashKey));
+        services.AddSingleton<ISsnHasher>(provider =>
+        {
+            var configuration = provider.GetRequiredService<IConfiguration>();
+            return new HmacSsnHasher(
+                configuration["Security:SsnHashKey"]
+                ?? throw new InvalidOperationException("Security:SsnHashKey is not configured."));
+        });
 
         var restrictedStates = configuration.GetSection("Decision:RestrictedStates").Get<string[]>() ?? ["NY"];
         services.AddSingleton(new RestrictedStates(
@@ -53,12 +57,12 @@ public static class DependencyInjection
 
         services.AddScoped<CustomerUpsertedDispatcher>();
 
-        var externalServiceBaseUrl = configuration["ExternalService:BaseUrl"]
-            ?? throw new InvalidOperationException("ExternalService:BaseUrl is not configured.");
-
-        services.AddHttpClient<ExternalServiceClient>(client =>
+        services.AddHttpClient<ExternalServiceClient>((provider, client) =>
             {
-                client.BaseAddress = new Uri(externalServiceBaseUrl);
+                var configuration = provider.GetRequiredService<IConfiguration>();
+                client.BaseAddress = new Uri(
+                    configuration["ExternalService:BaseUrl"]
+                    ?? throw new InvalidOperationException("ExternalService:BaseUrl is not configured."));
                 client.Timeout = TimeSpan.FromSeconds(10);
             })
             .AddStandardResilienceHandler();
