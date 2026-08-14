@@ -5,17 +5,6 @@ namespace Fundo.LoanApp.UnitTests.ExternalService;
 
 public class ExternalServiceClientTests
 {
-    private sealed class RecordingHandler : HttpMessageHandler
-    {
-        public List<HttpRequestMessage> Requests { get; } = [];
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-        {
-            Requests.Add(request);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
-        }
-    }
-
     private static CustomerPayload SamplePayload() => new(
         "hash-1", "6789", "Ada", "Lovelace", "Analytical Engines LLC",
         new AddressPayload("1 Byron Street", "Austin", "TX", "78701"),

@@ -42,14 +42,6 @@ app.MapPut("/api/customers/{ssnHash}", (string ssnHash, ReceivedCustomer custome
 // Lets the demo video show what the external service actually received.
 app.MapGet("/api/customers", () => Results.Ok(customers.Values));
 
-app.MapDelete("/api/customers", () =>
-{
-    customers.Clear();
-    return Results.NoContent();
-});
-
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
-
 app.Run();
 
 // The host runs under the invariant culture, where "C" prints the generic currency sign.

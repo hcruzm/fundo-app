@@ -14,7 +14,6 @@ using Fundo.LoanApp.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 
 namespace Fundo.LoanApp.Infrastructure;
 
@@ -54,12 +53,12 @@ public static class DependencyInjection
 
         services.AddScoped<CustomerUpsertedDispatcher>();
 
-        services.Configure<ExternalServiceOptions>(configuration.GetSection(ExternalServiceOptions.SectionName));
+        var externalServiceBaseUrl = configuration["ExternalService:BaseUrl"]
+            ?? throw new InvalidOperationException("ExternalService:BaseUrl is not configured.");
 
-        services.AddHttpClient<ExternalServiceClient>((provider, client) =>
+        services.AddHttpClient<ExternalServiceClient>(client =>
             {
-                var options = provider.GetRequiredService<IOptions<ExternalServiceOptions>>().Value;
-                client.BaseAddress = new Uri(options.BaseUrl);
+                client.BaseAddress = new Uri(externalServiceBaseUrl);
                 client.Timeout = TimeSpan.FromSeconds(10);
             })
             .AddStandardResilienceHandler();

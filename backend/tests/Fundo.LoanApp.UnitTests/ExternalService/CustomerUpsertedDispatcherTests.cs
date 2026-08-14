@@ -1,4 +1,3 @@
-using System.Net;
 using System.Text.Json;
 using Fundo.LoanApp.Domain.Applications;
 using Fundo.LoanApp.Domain.Customers;
@@ -10,17 +9,6 @@ namespace Fundo.LoanApp.UnitTests.ExternalService;
 public class CustomerUpsertedDispatcherTests
 {
     private static readonly DateTimeOffset Now = new(2026, 8, 13, 12, 0, 0, TimeSpan.Zero);
-
-    private sealed class RecordingHandler : HttpMessageHandler
-    {
-        public List<HttpRequestMessage> Requests { get; } = [];
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-        {
-            Requests.Add(request);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
-        }
-    }
 
     private sealed class FakeCustomerRepository(Customer customer) : ICustomerRepository
     {
