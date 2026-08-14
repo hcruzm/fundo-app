@@ -41,7 +41,7 @@ pnpm --dir frontend dev
 | Service | URL | Notes |
 |---|---|---|
 | PostgreSQL | `localhost:5433` | Published on 5433 so it does not collide with a locally installed PostgreSQL. The container still listens on 5432 internally. |
-| Mock external service | `http://localhost:5100` | Runs in Docker. In-memory state; it resets when the container restarts. |
+| Mock external service | `http://localhost:5100` | Runs in Docker. In-memory state; it resets when the container restarts. Because that state outlives `docker compose down -v` (which only clears PostgreSQL), a customer can be new to the database but already known to the mock, causing the background delivery to receive a `409`; run `docker compose restart mock-service` before a fresh walkthrough to reset it too. |
 | Backend API | `http://localhost:5080` | |
 | API reference (Scalar) | `http://localhost:5080/scalar/v1` | Served in the Development environment only. |
 | Frontend | `http://localhost:3000` | Reads the API base URL from `frontend/.env.local`. |
@@ -85,8 +85,8 @@ SSN is a new customer the first time it is submitted and a returning customer af
 |---|---|---|---|
 | Approved, new customer | `123-45-6789` | `TX` | `201 Created`, `Approved`, `isReturningCustomer: false` |
 | Returning customer | `123-45-6789` (submit twice) | `TX` | `201 Created`, `Approved`, `isReturningCustomer: true`, same ids, one row per table |
-| Denied, restricted state | any | `NY` | `200 OK`, `Denied` |
-| Denied, blacklisted SSN | `111-11-1111` or `222-22-2222` | `TX` | `200 OK`, `Denied` |
+| Denied, restricted state | any | `NY` | `200 OK`, `Denied`, `reason: "We do not currently accept applications from NY."` |
+| Denied, blacklisted SSN | `111-11-1111` or `222-22-2222` | `TX` | `200 OK`, `Denied`, `reason: "This application cannot be processed."` |
 
 A denial is the correct answer to a well-formed request, so it is `200 OK` with a
 `"decision": "Denied"` body rather than a 4xx. Nothing is written and no event is published
