@@ -55,13 +55,13 @@ To stop everything: `docker compose down` (add `-v` to drop the database volume 
 ## Tests
 
 ```bash
-# Everything: 53 tests. Requires Docker.
+# Everything: 56 tests. Requires Docker.
 dotnet test backend/Fundo.LoanApp.sln
 
 # Fast suite: 39 unit tests, no Docker, no I/O.
 dotnet test backend/tests/Fundo.LoanApp.UnitTests
 
-# Integration suite: 14 tests. Requires Docker.
+# Integration suite: 17 tests. Requires Docker.
 dotnet test backend/tests/Fundo.LoanApp.IntegrationTests
 ```
 
