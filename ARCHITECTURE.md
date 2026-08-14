@@ -215,15 +215,16 @@ it would be the first thing added.
 
 ```csharp
 await using var transaction = await db.Database.BeginTransactionAsync(ct);
-try
-{
-    var result = await operation(ct);
-    await db.SaveChangesAsync(ct);
-    await transaction.CommitAsync(ct);
-    return result;
-}
-catch { await transaction.RollbackAsync(ct); throw; }
+var result = await operation(ct);
+await db.SaveChangesAsync(ct);
+await transaction.CommitAsync(ct);
+return result;
 ```
+
+There is no explicit catch/rollback: `await using` rolls the transaction back automatically
+when it is disposed on the way out of a failed operation, and an explicit catch would risk
+swallowing the original exception with an `OperationCanceledException` if the request was
+already aborted.
 
 Repositories only `Add` to the change tracker and query; none of them calls
 `SaveChangesAsync`. The use case decides what belongs in one atomic unit, which is exactly
@@ -236,7 +237,7 @@ transaction without reaching into the `DbContext` afterwards.
 | Failure | Behaviour |
 |---|---|
 | The application is denied | Nothing is written, no event is published, the response is `200 OK` with the reason. |
-| The second write fails — the customer is inserted, the application insert then hits a constraint violation or a dropped connection | Both rows go through one `SaveChangesAsync` inside the transaction, so the failure is caught by `EfUnitOfWork`, the transaction is rolled back, and **neither** row persists. `Publish` is never reached, so no event exists. `GlobalExceptionHandler` returns `500` `ProblemDetails` with a `correlationId` and a generic title; the exception detail goes to the logs only. |
+| The second write fails — the customer is inserted, the application insert then hits a constraint violation or a dropped connection | Both rows go through one `SaveChangesAsync` inside the transaction, so the exception propagates out of `ExecuteInTransactionAsync`, `await using` rolls the transaction back on disposal, and **neither** row persists. `Publish` is never reached, so no event exists. `GlobalExceptionHandler` returns `500` `ProblemDetails` with a `correlationId` and a generic title; the exception detail goes to the logs only. |
 | A returning customer has no application row | `InvalidOperationException` inside the transaction — same path as above. The unique index and the one-to-one assumption make this a broken invariant, not a normal case. |
 | The external service is down or slow | The applicant is unaffected: the transaction has already committed and the response has already been sent. The resilience pipeline retries; if it gives up, the worker logs `"Failed to deliver the event for customer {CustomerId} after retries."` and continues. The system is now inconsistent with the external service — see the outbox limitation above. |
 | The database is unreachable at startup | `DatabaseInitializer` throws from `StartAsync` and the host fails to start, loudly, rather than serving requests against a database that is not there. |
@@ -278,7 +279,8 @@ edge of the B-tree instead of scattering across it the way UUIDv4 does.
 this system. It is what makes "have I seen this applicant before" a single indexed equality
 lookup, and it makes a duplicate customer impossible even under a race between two concurrent
 submissions of the same SSN — one of them fails at the constraint and rolls back rather than
-creating a second customer.
+creating a second customer. The losing client sees an unhandled `DbUpdateException` surfaced by
+`GlobalExceptionHandler` as a `500`, not a friendlier conflict response.
 
 **`ix_applications_customer_id` is unique** because this system deliberately holds exactly one
 application per customer. The challenge says a returning customer's records should be
