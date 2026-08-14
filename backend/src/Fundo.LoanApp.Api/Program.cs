@@ -2,7 +2,6 @@ using FluentValidation;
 using Fundo.LoanApp.Api.Endpoints;
 using Fundo.LoanApp.Api.Errors;
 using Fundo.LoanApp.Infrastructure;
-using Microsoft.AspNetCore.OpenApi;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
