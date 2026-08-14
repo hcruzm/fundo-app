@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: fundo-postgres
+    environment:
+      POSTGRES_DB: fundo_loans
+      POSTGRES_USER: fundo
+      POSTGRES_PASSWORD: fundo
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fundo -d fundo_loans"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mock-service:
+    build: ./mock-service
+    container_name: fundo-mock-service
+    ports:
+      - "5100:5100"
+
+volumes:
+  postgres-data:
