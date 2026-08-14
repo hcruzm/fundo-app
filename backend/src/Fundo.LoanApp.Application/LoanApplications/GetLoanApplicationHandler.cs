@@ -27,7 +27,7 @@ public sealed class GetLoanApplicationHandler(
             customer.LastName,
             customer.CompanyName,
             $"•••-••-{customer.SsnLast4}",
-            new AddressInput(
+            new AddressDto(
                 customer.Address.Street,
                 customer.Address.City,
                 customer.Address.State,

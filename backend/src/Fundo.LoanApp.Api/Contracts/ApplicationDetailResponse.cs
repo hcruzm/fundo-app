@@ -1,6 +1,6 @@
-namespace Fundo.LoanApp.Application.LoanApplications;
+namespace Fundo.LoanApp.Api.Contracts;
 
-public sealed record LoanApplicationDetail(
+public sealed record ApplicationDetailResponse(
     Guid ApplicationId,
     Guid CustomerId,
     decimal RequestedAmount,
@@ -9,6 +9,8 @@ public sealed record LoanApplicationDetail(
     string LastName,
     string CompanyName,
     string MaskedSsn,
-    AddressDto Address,
+    AddressResponse Address,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
+
+public sealed record AddressResponse(string Street, string City, string State, string PostalCode);

@@ -20,7 +20,7 @@ public static class LoanApplicationEndpoints
 
         group.MapGet("/{id:guid}", GetAsync)
             .WithSummary("Returns a stored application with its customer.")
-            .Produces<LoanApplicationDetail>()
+            .Produces<ApplicationDetailResponse>()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         return routes;
@@ -66,8 +66,28 @@ public static class LoanApplicationEndpoints
     {
         var detail = await handler.HandleAsync(id, ct);
 
-        return detail is null
-            ? Results.Problem($"Application {id} was not found.", statusCode: StatusCodes.Status404NotFound)
-            : Results.Ok(detail);
+        if (detail is null)
+        {
+            return Results.Problem($"Application {id} was not found.", statusCode: StatusCodes.Status404NotFound);
+        }
+
+        var response = new ApplicationDetailResponse(
+            detail.ApplicationId,
+            detail.CustomerId,
+            detail.RequestedAmount,
+            detail.Status,
+            detail.FirstName,
+            detail.LastName,
+            detail.CompanyName,
+            detail.MaskedSsn,
+            new AddressResponse(
+                detail.Address.Street,
+                detail.Address.City,
+                detail.Address.State,
+                detail.Address.PostalCode),
+            detail.CreatedAt,
+            detail.UpdatedAt);
+
+        return Results.Ok(response);
     }
 }

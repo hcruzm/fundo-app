@@ -6,6 +6,6 @@ public sealed record SubmitLoanApplicationCommand(
     string CompanyName,
     decimal RequestedAmount,
     string Ssn,
-    AddressInput Address);
+    AddressDto Address);
 
-public sealed record AddressInput(string Street, string City, string State, string PostalCode);
+public sealed record AddressDto(string Street, string City, string State, string PostalCode);

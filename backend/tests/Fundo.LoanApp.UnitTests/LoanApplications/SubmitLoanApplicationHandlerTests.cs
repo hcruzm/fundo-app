@@ -14,7 +14,7 @@ public class SubmitLoanApplicationHandlerTests
 
     private static SubmitLoanApplicationCommand CommandInState(string state = "TX", decimal amount = 25_000m) => new(
         "Ada", "Lovelace", "Analytical Engines LLC", amount, "123-45-6789",
-        new AddressInput("1 Byron Street", "Austin", state, "78701"));
+        new AddressDto("1 Byron Street", "Austin", state, "78701"));
 
     private sealed class StubHasher : ISsnHasher
     {

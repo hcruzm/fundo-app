@@ -16,7 +16,7 @@ public sealed record SubmitApplicationRequest(
         CompanyName.Trim(),
         RequestedAmount,
         Ssn,
-        new AddressInput(
+        new AddressDto(
             Address.Street.Trim(),
             Address.City.Trim(),
             Address.State.Trim().ToUpperInvariant(),
