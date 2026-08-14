@@ -36,7 +36,11 @@ export function ApplicationForm() {
         return;
       }
 
-      router.push(`/applications/${result.applicationId}`);
+      router.push(
+        result.isReturningCustomer
+          ? `/applications/${result.applicationId}?returning=1`
+          : `/applications/${result.applicationId}`,
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Something went wrong.");
     }
@@ -49,6 +53,7 @@ export function ApplicationForm() {
       <CardHeader>
         <CardTitle>Apply for a loan</CardTitle>
         <CardDescription>We will give you a decision right away.</CardDescription>
+        <p className="text-sm text-muted-foreground">All fields are required.</p>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -61,7 +66,7 @@ export function ApplicationForm() {
                   <FormItem>
                     <FormLabel>First name</FormLabel>
                     <FormControl>
-                      <Input autoComplete="given-name" {...field} />
+                      <Input placeholder="Ada" autoComplete="given-name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -74,7 +79,7 @@ export function ApplicationForm() {
                   <FormItem>
                     <FormLabel>Last name</FormLabel>
                     <FormControl>
-                      <Input autoComplete="family-name" {...field} />
+                      <Input placeholder="Lovelace" autoComplete="family-name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -89,7 +94,7 @@ export function ApplicationForm() {
                 <FormItem>
                   <FormLabel>Company name</FormLabel>
                   <FormControl>
-                    <Input autoComplete="organization" {...field} />
+                    <Input placeholder="Analytical Engines LLC" autoComplete="organization" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -103,7 +108,7 @@ export function ApplicationForm() {
                 <FormItem>
                   <FormLabel>Street</FormLabel>
                   <FormControl>
-                    <Input autoComplete="address-line1" {...field} />
+                    <Input placeholder="1 Byron Street" autoComplete="address-line1" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -118,7 +123,7 @@ export function ApplicationForm() {
                   <FormItem>
                     <FormLabel>City</FormLabel>
                     <FormControl>
-                      <Input autoComplete="address-level2" {...field} />
+                      <Input placeholder="Austin" autoComplete="address-level2" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -144,7 +149,7 @@ export function ApplicationForm() {
                   <FormItem>
                     <FormLabel>ZIP code</FormLabel>
                     <FormControl>
-                      <Input autoComplete="postal-code" {...field} />
+                      <Input placeholder="78701" autoComplete="postal-code" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

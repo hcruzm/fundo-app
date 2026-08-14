@@ -5,8 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getApplication } from "@/lib/api";
 
-export default async function ApplicationPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ApplicationPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ returning?: string }>;
+}) {
   const { id } = await params;
+  const { returning } = await searchParams;
   const application = await getApplication(id);
 
   if (!application) {
@@ -21,7 +28,11 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
       <Card className="w-full max-w-xl">
         <CardHeader>
           <CardTitle>Your application was approved</CardTitle>
-          <CardDescription>Reference {application.applicationId}</CardDescription>
+          <CardDescription>
+            {returning
+              ? `We updated your existing application. Reference ${application.applicationId}`
+              : `Reference ${application.applicationId}`}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
