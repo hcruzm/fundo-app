@@ -48,3 +48,28 @@ export async function getApplication(id: string): Promise<ApplicationDetail | nu
 
   return (await response.json()) as ApplicationDetail;
 }
+
+export type ApplicationSummary = {
+  applicationId: string;
+  customerId: string;
+  firstName: string;
+  lastName: string;
+  companyName: string;
+  requestedAmount: number;
+  maskedSsn: string;
+  city: string;
+  state: string;
+  isReturningCustomer: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function listApplications(): Promise<ApplicationSummary[]> {
+  const response = await fetch(`${baseUrl}/api/applications`, { cache: "no-store" });
+
+  if (!response.ok) {
+    throw new Error("We could not load the stored applications.");
+  }
+
+  return (await response.json()) as ApplicationSummary[];
+}
