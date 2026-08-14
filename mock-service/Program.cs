@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
@@ -15,8 +16,8 @@ app.MapPost("/api/customers", (ReceivedCustomer customer, ILogger<Program> logge
     }
 
     logger.LogInformation(
-        "CREATE received for {FirstName} {LastName} ({SsnHash}) requesting {Amount:C}.",
-        customer.FirstName, customer.LastName, customer.SsnHash, customer.Application.RequestedAmount);
+        "CREATE received for {FirstName} {LastName} ({SsnHash}) requesting {Amount}.",
+        customer.FirstName, customer.LastName, customer.SsnHash, FormatUsd(customer.Application.RequestedAmount));
 
     return Results.Created($"/api/customers/{customer.SsnHash}", customer);
 });
@@ -32,8 +33,8 @@ app.MapPut("/api/customers/{ssnHash}", (string ssnHash, ReceivedCustomer custome
     customers[ssnHash] = customer;
 
     logger.LogInformation(
-        "UPDATE received for {FirstName} {LastName} ({SsnHash}) requesting {Amount:C}.",
-        customer.FirstName, customer.LastName, ssnHash, customer.Application.RequestedAmount);
+        "UPDATE received for {FirstName} {LastName} ({SsnHash}) requesting {Amount}.",
+        customer.FirstName, customer.LastName, ssnHash, FormatUsd(customer.Application.RequestedAmount));
 
     return Results.Ok(customer);
 });
@@ -50,6 +51,10 @@ app.MapDelete("/api/customers", () =>
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.Run();
+
+// The host runs under the invariant culture, where "C" prints the generic currency sign.
+// The log lines are read by a person, so the culture is pinned to en-US.
+static string FormatUsd(decimal amount) => amount.ToString("C", CultureInfo.GetCultureInfo("en-US"));
 
 internal sealed record ReceivedCustomer(
     string SsnHash,
