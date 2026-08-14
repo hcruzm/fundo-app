@@ -83,6 +83,7 @@ public class SubmitApplicationEndpointTests(PostgresFixture fixture)
 
         await using var db = fixture.CreateDbContext();
         Assert.Equal(0, await db.Customers.CountAsync());
+        Assert.Equal(0, await db.Applications.CountAsync());
     }
 
     [Fact]
