@@ -27,7 +27,7 @@ export async function submitApplication(payload: ApplicationPayload): Promise<Su
     body: JSON.stringify(payload),
   });
 
-  if (!response.ok && response.status !== 200) {
+  if (!response.ok) {
     const problem = await response.json().catch(() => null);
     throw new Error(problem?.title ?? "We could not submit your application. Please try again.");
   }
