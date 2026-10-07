@@ -1,15 +1,13 @@
 # Fundo Loan Application
 
+**Demo video: [watch the walkthrough](https://www.loom.com/share/6d078d8ed30249048750b3716e05fbab)** — an approved application, both denial rules, a returning customer updating in place, and the data arriving at the external service.
+
 A loan application system in three pieces: a Next.js form, a .NET API, and a mock external
 service standing in for a third party. The API runs each submission through a rule engine,
-writes the customer and the application in a single transaction, and publishes an event that
+writes the customer, the application and an outbox event in a single transaction, and the event
 is delivered to the external service outside the HTTP request that answers the form. A new
 applicant gets a customer and an application; a returning applicant — matched on the hashed
 SSN — has those same two records updated in place rather than duplicated.
-
-## Demo
-
-**[Watch the walkthrough](https://www.loom.com/share/6d078d8ed30249048750b3716e05fbab)** — an approved application, both denial rules, a returning customer updating in place, and the data arriving at the external service.
 
 ## Prerequisites
 
@@ -55,13 +53,13 @@ To stop everything: `docker compose down` (add `-v` to drop the database volume 
 ## Tests
 
 ```bash
-# Everything: 68 tests. Requires Docker.
+# Everything: 59 tests. Requires Docker.
 dotnet test backend/Fundo.LoanApp.sln
 
-# Fast suite: 42 unit tests, no Docker, no I/O.
+# Fast suite: 37 unit tests, no Docker, no I/O.
 dotnet test backend/tests/Fundo.LoanApp.UnitTests
 
-# Integration suite: 26 tests. Requires Docker.
+# Integration suite: 22 tests. Requires Docker.
 dotnet test backend/tests/Fundo.LoanApp.IntegrationTests
 ```
 
@@ -149,7 +147,6 @@ on a following poll.
 |---|---|---|
 | `POST` | `/api/applications` | `201 Created` with `Location` on approval, `200 OK` on denial, `400` `ValidationProblemDetails` on a malformed body |
 | `GET` | `/api/applications/{id}` | `200 OK` with the application, its customer and the masked SSN (`•••-••-6789`), `404` otherwise |
-| `GET` | `/api/applications` | `200 OK` with every stored application, most recently updated first |
 | `GET` | `/health` | `200 OK` |
 
 Every non-success response is an RFC 9457 `ProblemDetails`. Unhandled exceptions return `500`
@@ -187,6 +184,6 @@ the seeded blacklist entries — so in a real system it is a rotation problem, n
 ## Further reading
 
 [`ARCHITECTURE.md`](ARCHITECTURE.md) covers the layer boundaries and how they are enforced, the
-rule engine and how to add a rule, the background event path and its known failure window, the
-transaction boundary, the SSN hashing decision, and everything that was deliberately left out.
+rule engine and how to add a rule, the outbox and the external service contract, the
+transaction boundary, and the trade-offs and omissions.
 
