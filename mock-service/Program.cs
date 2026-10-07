@@ -7,34 +7,16 @@ var app = builder.Build();
 // Stands in for a third-party system. State is in memory and resets on restart.
 var customers = new ConcurrentDictionary<string, ReceivedCustomer>();
 
-app.MapPost("/api/customers", (ReceivedCustomer customer, ILogger<Program> logger) =>
-{
-    if (!customers.TryAdd(customer.SsnHash, customer))
-    {
-        logger.LogWarning("Rejected a create for {SsnHash}: the customer already exists.", customer.SsnHash);
-        return Results.Conflict(new { message = "This customer already exists." });
-    }
-
-    logger.LogInformation(
-        "CREATE received for {FirstName} {LastName} ({SsnHash}) requesting {Amount}.",
-        customer.FirstName, customer.LastName, customer.SsnHash, FormatUsd(customer.Application.RequestedAmount));
-
-    return Results.Created($"/api/customers/{customer.SsnHash}", customer);
-});
-
+// Upsert keyed by the SSN hash: always 200, whether the customer is new or known. Being
+// idempotent is what lets the sender deliver the same event more than once safely.
 app.MapPut("/api/customers/{ssnHash}", (string ssnHash, ReceivedCustomer customer, ILogger<Program> logger) =>
 {
-    if (!customers.ContainsKey(ssnHash))
-    {
-        logger.LogWarning("Rejected an update for {SsnHash}: the customer is unknown.", ssnHash);
-        return Results.NotFound(new { message = "This customer is unknown." });
-    }
-
+    var operation = customers.ContainsKey(ssnHash) ? "UPDATE" : "CREATE";
     customers[ssnHash] = customer;
 
     logger.LogInformation(
-        "UPDATE received for {FirstName} {LastName} ({SsnHash}) requesting {Amount}.",
-        customer.FirstName, customer.LastName, ssnHash, FormatUsd(customer.Application.RequestedAmount));
+        "{Operation} received for {FirstName} {LastName} ({SsnHash}) requesting {Amount}.",
+        operation, customer.FirstName, customer.LastName, ssnHash, FormatUsd(customer.Application.RequestedAmount));
 
     return Results.Ok(customer);
 });

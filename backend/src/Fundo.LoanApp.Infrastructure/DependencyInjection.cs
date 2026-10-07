@@ -1,11 +1,9 @@
-using System.Threading.Channels;
 using Fundo.LoanApp.Application.Abstractions;
 using Fundo.LoanApp.Application.LoanApplications;
 using Fundo.LoanApp.Domain.Applications;
 using Fundo.LoanApp.Domain.Customers;
 using Fundo.LoanApp.Domain.Decisions;
 using Fundo.LoanApp.Domain.Decisions.Rules;
-using Fundo.LoanApp.Domain.Events;
 using Fundo.LoanApp.Infrastructure.ExternalService;
 using Fundo.LoanApp.Infrastructure.Messaging;
 using Fundo.LoanApp.Infrastructure.Persistence;
@@ -52,8 +50,7 @@ public static class DependencyInjection
         services.AddScoped<ListLoanApplicationsHandler>();
 
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton(Channel.CreateUnbounded<CustomerUpsertedEvent>());
-        services.AddScoped<IEventPublisher, ChannelEventPublisher>();
+        services.AddScoped<IEventPublisher, OutboxEventPublisher>();
         services.AddHostedService<DatabaseInitializer>();
 
         services.AddScoped<CustomerUpsertedDispatcher>();
@@ -68,7 +65,7 @@ public static class DependencyInjection
             })
             .AddStandardResilienceHandler();
 
-        services.AddHostedService<ExternalServiceWorker>();
+        services.AddHostedService<OutboxProcessor>();
 
         return services;
     }

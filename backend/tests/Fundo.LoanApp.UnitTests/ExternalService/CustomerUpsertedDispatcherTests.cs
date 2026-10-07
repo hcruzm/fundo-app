@@ -58,28 +58,12 @@ public class CustomerUpsertedDispatcherTests
     }
 
     [Fact]
-    public async Task A_new_customer_event_posts_to_the_collection_route()
+    public async Task An_event_puts_the_committed_records_to_the_item_route_keyed_by_the_ssn_hash()
     {
         var (customer, application) = SampleRecords();
         var handler = new RecordingHandler();
         var dispatcher = CreateDispatcher(customer, application, handler, out _);
-        var evt = new CustomerUpsertedEvent(customer.Id, application.Id, IsUpdate: false);
-
-        await dispatcher.DispatchAsync(evt, CancellationToken.None);
-
-        var request = Assert.Single(handler.Requests);
-        Assert.Equal(HttpMethod.Post, request.Method);
-        Assert.Equal("/api/customers", request.RequestUri?.AbsolutePath);
-        await AssertPayloadIsSafe(request);
-    }
-
-    [Fact]
-    public async Task A_returning_customer_event_puts_to_the_item_route_keyed_by_the_ssn_hash()
-    {
-        var (customer, application) = SampleRecords();
-        var handler = new RecordingHandler();
-        var dispatcher = CreateDispatcher(customer, application, handler, out _);
-        var evt = new CustomerUpsertedEvent(customer.Id, application.Id, IsUpdate: true);
+        var evt = new CustomerUpsertedEvent(customer.Id, application.Id);
 
         await dispatcher.DispatchAsync(evt, CancellationToken.None);
 

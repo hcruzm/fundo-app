@@ -63,6 +63,9 @@ public sealed class SubmitLoanApplicationHandler(
                 var application = LoanApplication.Create(customer.Id, command.RequestedAmount, now);
                 applications.Add(application);
 
+                // Recorded inside the transaction: the event commits or rolls back with the records.
+                eventPublisher.Publish(new CustomerUpsertedEvent(customer.Id, application.Id));
+
                 return new UpsertOutcome(customer.Id, application.Id, IsUpdate: false);
             }
 
@@ -72,12 +75,10 @@ public sealed class SubmitLoanApplicationHandler(
                 ?? throw new InvalidOperationException($"Customer {existing.Id} has no application to update.");
             currentApplication.UpdateRequestedAmount(command.RequestedAmount, now);
 
+            eventPublisher.Publish(new CustomerUpsertedEvent(existing.Id, currentApplication.Id));
+
             return new UpsertOutcome(existing.Id, currentApplication.Id, IsUpdate: true);
         }, ct);
-
-        // Published only after the transaction commits, so the external service never
-        // learns about a customer that was rolled back.
-        eventPublisher.Publish(new CustomerUpsertedEvent(upsert.CustomerId, upsert.ApplicationId, upsert.IsUpdate));
 
         return new SubmitLoanApplicationResult.Approved(upsert.ApplicationId, upsert.CustomerId, upsert.IsUpdate);
     }

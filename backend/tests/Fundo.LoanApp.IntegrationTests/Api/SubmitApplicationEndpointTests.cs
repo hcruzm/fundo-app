@@ -42,7 +42,7 @@ public class SubmitApplicationEndpointTests(PostgresFixture fixture)
         };
 
     [Fact]
-    public async Task An_approved_application_returns_201_and_stores_one_customer_and_one_application()
+    public async Task An_approved_application_returns_201_and_stores_one_customer_one_application_and_one_event()
     {
         var response = await client.PostAsJsonAsync("/api/applications", Payload());
 
@@ -56,6 +56,7 @@ public class SubmitApplicationEndpointTests(PostgresFixture fixture)
         await using var db = fixture.CreateDbContext();
         Assert.Equal(1, await db.Customers.CountAsync());
         Assert.Equal(1, await db.Applications.CountAsync());
+        Assert.Equal(1, await db.OutboxMessages.CountAsync());
     }
 
     [Fact]
@@ -72,6 +73,7 @@ public class SubmitApplicationEndpointTests(PostgresFixture fixture)
         await using var db = fixture.CreateDbContext();
         Assert.Equal(0, await db.Customers.CountAsync());
         Assert.Equal(0, await db.Applications.CountAsync());
+        Assert.Equal(0, await db.OutboxMessages.CountAsync());
     }
 
     [Fact]
@@ -87,6 +89,7 @@ public class SubmitApplicationEndpointTests(PostgresFixture fixture)
         await using var db = fixture.CreateDbContext();
         Assert.Equal(0, await db.Customers.CountAsync());
         Assert.Equal(0, await db.Applications.CountAsync());
+        Assert.Equal(0, await db.OutboxMessages.CountAsync());
     }
 
     [Fact]
@@ -108,6 +111,7 @@ public class SubmitApplicationEndpointTests(PostgresFixture fixture)
         await using var db = fixture.CreateDbContext();
         Assert.Equal(1, await db.Customers.CountAsync());
         Assert.Equal(1, await db.Applications.CountAsync());
+        Assert.Equal(2, await db.OutboxMessages.CountAsync());
         Assert.Equal(40_000m, (await db.Applications.SingleAsync()).RequestedAmount);
         Assert.Equal("Difference Engines LLC", (await db.Customers.SingleAsync()).CompanyName);
     }

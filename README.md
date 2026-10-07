@@ -41,7 +41,7 @@ pnpm --dir frontend dev
 | Service | URL | Notes |
 |---|---|---|
 | PostgreSQL | `localhost:5433` | Published on 5433 so it does not collide with a locally installed PostgreSQL. The container still listens on 5432 internally. |
-| Mock external service | `http://localhost:5100` | Runs in Docker. In-memory state; it resets when the container restarts. Because that state outlives `docker compose down -v` (which only clears PostgreSQL), a customer can be new to the database but already known to the mock, causing the background delivery to receive a `409`; run `docker compose restart mock-service` before a fresh walkthrough to reset it too. |
+| Mock external service | `http://localhost:5100` | Runs in Docker. In-memory state; it resets when the container restarts (`docker compose restart mock-service`). |
 | Backend API | `http://localhost:5080` | |
 | API reference (Scalar) | `http://localhost:5080/scalar/v1` | Served in the Development environment only. |
 | Frontend | `http://localhost:3000` | Reads the API base URL from `frontend/.env.local`. |
@@ -58,10 +58,10 @@ To stop everything: `docker compose down` (add `-v` to drop the database volume 
 # Everything: 68 tests. Requires Docker.
 dotnet test backend/Fundo.LoanApp.sln
 
-# Fast suite: 44 unit tests, no Docker, no I/O.
+# Fast suite: 42 unit tests, no Docker, no I/O.
 dotnet test backend/tests/Fundo.LoanApp.UnitTests
 
-# Integration suite: 24 tests. Requires Docker.
+# Integration suite: 26 tests. Requires Docker.
 dotnet test backend/tests/Fundo.LoanApp.IntegrationTests
 ```
 
@@ -124,11 +124,24 @@ curl -s http://localhost:5100/api/customers
 After the two submissions above there is exactly **one** entry. Check that:
 
 - `ssnHash` is a hex digest and `ssnLast4` is `6789` — the full SSN never leaves this system.
-- `application.requestedAmount` is the **second** amount, which proves the `PUT` was delivered.
+- `application.requestedAmount` is the **second** amount, which proves the update was delivered.
 - `application.id` matches the `applicationId` the API returned.
 
 The mock service also logs every call to stdout (`docker compose logs -f mock-service`), one
-line per `CREATE` or `UPDATE`.
+line per `CREATE` or `UPDATE`. Both arrive through the same idempotent
+`PUT /api/customers/{ssnHash}`.
+
+Delivery goes through a transactional outbox, polled every two seconds. Each event is a row in
+`outbox_messages`, written in the same transaction as the customer and the application:
+
+```bash
+docker compose exec postgres psql -U fundo -d fundo_loans \
+  -c "select payload, processed_at from outbox_messages order by created_at;"
+```
+
+To see recovery, run `docker compose stop mock-service`, submit an application (the row stays
+pending, `processed_at` empty), then `docker compose start mock-service`: the row is delivered
+on a following poll.
 
 ## API
 

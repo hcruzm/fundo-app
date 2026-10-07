@@ -36,6 +36,6 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         await using var db = CreateDbContext();
         await db.Database.ExecuteSqlRawAsync(
-            "TRUNCATE TABLE applications, customers, blacklisted_ssns RESTART IDENTITY CASCADE;");
+            "TRUNCATE TABLE applications, customers, blacklisted_ssns, outbox_messages RESTART IDENTITY CASCADE;");
     }
 }

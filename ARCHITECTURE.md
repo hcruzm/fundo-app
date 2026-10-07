@@ -16,11 +16,11 @@ fundo-loan-application/
 │   ├── src/
 │   │   ├── Fundo.LoanApp.Domain/           entities, value objects, rule engine, ports
 │   │   ├── Fundo.LoanApp.Application/      use cases and the ports they need
-│   │   ├── Fundo.LoanApp.Infrastructure/   EF Core, HTTP client, channel, hashing
+│   │   ├── Fundo.LoanApp.Infrastructure/   EF Core, outbox, HTTP client, hashing
 │   │   └── Fundo.LoanApp.Api/              minimal API, validation, composition root
 │   └── tests/
-│       ├── Fundo.LoanApp.UnitTests/        44 tests, no I/O
-│       └── Fundo.LoanApp.IntegrationTests/ 24 tests, Testcontainers PostgreSQL
+│       ├── Fundo.LoanApp.UnitTests/        42 tests, no I/O
+│       └── Fundo.LoanApp.IntegrationTests/ 26 tests, Testcontainers PostgreSQL
 ├── frontend/                       Next.js App Router, shadcn/ui, react-hook-form + zod
 └── mock-service/                   single-file minimal API standing in for a third party
 ```
@@ -29,7 +29,7 @@ fundo-loan-application/
 |---|---|---|
 | `Fundo.LoanApp.Domain` | nothing — the `.csproj` has no `PackageReference` at all | `Customer`, `LoanApplication`, `Address`, `SsnHash`, `Decision`, `RuleOutcome`, `DecisionEngine`, `IDenialRule` and the two rules, `CustomerUpsertedEvent`, and the three repository interfaces |
 | `Fundo.LoanApp.Application` | Domain | `SubmitLoanApplicationHandler`, `GetLoanApplicationHandler`, `ListLoanApplicationsHandler`, their commands and DTOs, and the ports `IUnitOfWork`, `IEventPublisher`, `ISsnHasher` |
-| `Fundo.LoanApp.Infrastructure` | Application (and Domain through it) | `LoanAppDbContext`, entity configurations, migrations, the three repositories, `EfUnitOfWork`, `HmacSsnHasher`, `ChannelEventPublisher`, `ExternalServiceWorker`, `CustomerUpsertedDispatcher`, `ExternalServiceClient`, `DatabaseInitializer`, `BlacklistSeeder`, and the `AddInfrastructure` registration extension |
+| `Fundo.LoanApp.Infrastructure` | Application (and Domain through it) | `LoanAppDbContext`, entity configurations, migrations, the three repositories, `EfUnitOfWork`, `HmacSsnHasher`, `OutboxEventPublisher`, `OutboxProcessor`, `CustomerUpsertedDispatcher`, `ExternalServiceClient`, `DatabaseInitializer`, `BlacklistSeeder`, and the `AddInfrastructure` registration extension |
 | `Fundo.LoanApp.Api` | Infrastructure | endpoint group, request contracts, FluentValidation validators and the validation filter, `GlobalExceptionHandler`, OpenAPI + Scalar, CORS |
 
 Two things follow from that table.
@@ -70,9 +70,9 @@ POST /api/applications
        4. Approved ─► unitOfWork.ExecuteInTransactionAsync(...)
                         new SSN      → Customer.Create + LoanApplication.Create
                         existing SSN → UpdateDetails + UpdateRequestedAmount
-                      COMMIT
-       5. eventPublisher.Publish(CustomerUpsertedEvent)   after the commit
-       6. return Approved(applicationId, customerId, isReturningCustomer)
+                        eventPublisher.Publish(CustomerUpsertedEvent)  → outbox row
+                      COMMIT   (customer, application and event, or none of them)
+       5. return Approved(applicationId, customerId, isReturningCustomer)
 ```
 
 ---
@@ -142,70 +142,64 @@ are on a list, which discloses the list. The comment in the rule says so, so tha
 
 ## 3. Background event workflow
 
-The challenge requires the external service call to happen outside the request that answers
-the form. The path is:
+The challenge asks for two things that pull against each other: the event must be part of the
+same transaction as the records, and it must be processed outside the HTTP request. A
+transactional outbox gives both.
 
 ```
-SubmitLoanApplicationHandler        (after COMMIT)
-   └─ IEventPublisher.Publish(CustomerUpsertedEvent(customerId, applicationId, isUpdate))
-        └─ ChannelEventPublisher → Channel<CustomerUpsertedEvent>.Writer.TryWrite   (never blocks)
-             │                       unbounded singleton channel
-             ▼
-        ExternalServiceWorker : BackgroundService
-             await foreach (evt in channel.Reader.ReadAllAsync(stoppingToken))
-             └─ creates a DI scope → CustomerUpsertedDispatcher
-                  ├─ re-reads the Customer and the LoanApplication from the database
-                  └─ ExternalServiceClient
-                       IsUpdate == false → POST /api/customers
-                       IsUpdate == true  → PUT  /api/customers/{ssnHash}
+SubmitLoanApplicationHandler          (inside ExecuteInTransactionAsync)
+   └─ IEventPublisher.Publish(CustomerUpsertedEvent(customerId, applicationId))
+        └─ OutboxEventPublisher → adds an outbox_messages row to the change tracker
+   COMMIT  ── customer + application + outbox row, atomically
+
+OutboxProcessor : BackgroundService   (every 2 s, outside any request)
+   └─ SELECT pending rows (processed_at IS NULL) ORDER BY created_at LIMIT 20
+        └─ for each: CustomerUpsertedDispatcher
+             ├─ re-reads the Customer and the LoanApplication from the database
+             └─ ExternalServiceClient → PUT /api/customers/{ssnHash}   (upsert)
+           success → processed_at = now, SAVE
+           failure → log, leave pending, retried on the next poll
 ```
 
-Three details are deliberate.
+**The event is written in the transaction, not after it.** `IEventPublisher` did not change;
+its implementation did. `OutboxEventPublisher` only adds a row to the same `DbContext`, so the
+`SaveChangesAsync` + `COMMIT` in `EfUnitOfWork` persists the customer, the application and the
+event together. A rollback discards all three. There is no window in which the records exist
+and the event does not, or the other way round.
 
-**Publish happens after the commit, not inside the transaction.** If the transaction rolls
-back, no event is written, so the external service never hears about a customer that does not
-exist.
-
-**The publisher does not await anything.** `TryWrite` on an unbounded channel always succeeds
-and returns immediately, so the HTTP response to the applicant does not wait on a third party.
+**The request never waits on the third party.** The handler's only extra work is one more
+`INSERT` in a transaction it already runs. Delivery happens in `OutboxProcessor`, which
+resolves its own DI scope per poll because the dispatcher depends on a scoped `DbContext`.
 
 **The dispatcher re-reads from the database instead of carrying data on the event.** The event
-carries two ids and a boolean. Whatever the dispatcher sends is committed state, and a delayed
-delivery sends current data rather than a stale snapshot.
+carries two ids. Whatever is sent is committed state, so a delayed or repeated delivery sends
+current data rather than a stale snapshot.
 
-The worker resolves its own DI scope per event because the dispatcher depends on scoped
-repositories and a scoped `DbContext`, which cannot be captured by a singleton
-`BackgroundService`.
+### The external service contract
 
-**Retries.** The typed `ExternalServiceClient` is registered with
-`.AddStandardResilienceHandler()` from `Microsoft.Extensions.Http.Resilience`, which layers a
-rate limiter, a total-request timeout, a retry with exponential backoff and jitter, a circuit
-breaker, and a per-attempt timeout around every call. The defaults are used unchanged; the
-only override is `HttpClient.Timeout = 10s`. `EnsureSuccessStatusCode()` turns a non-2xx into
-an exception, so a `5xx` is retried like a transport failure.
+One endpoint: `PUT /api/customers/{ssnHash}` with the customer and its application in the
+body. It creates the record if the hash is unknown and replaces it otherwise, and always
+answers `200 OK`.
 
-When the retries are exhausted, `ExternalServiceWorker` logs the error and moves to the next
-event. One undeliverable event does not stall the queue, and the applicant's decision is
-unaffected — they already have it.
+- **Why one idempotent upsert instead of `POST` + `PUT`.** The outbox delivers at least once: a
+  crash after the external call but before `processed_at` is saved sends the same event again.
+  An upsert makes that harmless. It also removes any need for this system to know whether the
+  external service already has the customer — a create/update split decided from *our*
+  database breaks as soon as the two sides disagree.
+- **Why the SSN hash is the key.** It is already the customer's identity here, it is stable
+  across submissions, and it is not the SSN.
 
-### Known limitation: the queue is in-process
+**Retries.** Two layers. Each call goes through `.AddStandardResilienceHandler()` (retry with
+exponential backoff and jitter, circuit breaker, timeouts) for transient blips. If that gives
+up, the row stays pending and the next poll tries again, so an outage of any length is
+recovered once the service is back. Messages are processed oldest first; because each
+delivery sends current state, order across retries does not affect the final result.
 
-`Channel<T>` lives in the API process's memory. If the process dies between the commit and the
-delivery, that event is gone: the database has the customer, the external service does not,
-and nothing will ever reconcile them. There is no dead-letter queue and no retry after the
-resilience pipeline gives up.
-
-**The fix is a transactional outbox**: write the event to an `outbox` table inside the same
-transaction as the customer and the application, and have a poller read unsent rows, deliver
-them, and mark them sent. The commit then guarantees the event, and delivery becomes
-at-least-once, which in turn requires the external service to be idempotent or the payloads to
-carry a deduplication key.
-
-It was not built here because it is a table, a poller, a claiming strategy for multiple
-instances, and an idempotency contract on the receiving side — a meaningful amount of
-machinery for a guarantee this challenge does not ask for. Documenting the gap honestly seemed
-better than shipping a half-outbox. If this were going to production with real money attached,
-it would be the first thing added.
+**Left out on purpose.** No attempt counter or dead-letter state — a permanently failing
+message is retried every poll and logged each time. No multi-instance claiming
+(`FOR UPDATE SKIP LOCKED`): there is one API instance; with more, two processors could send the
+same message twice, which the idempotent upsert already tolerates. No cleanup of processed
+rows.
 
 ---
 
@@ -237,20 +231,22 @@ transaction without reaching into the `DbContext` afterwards.
 | Failure | Behaviour |
 |---|---|
 | The application is denied | Nothing is written, no event is published, the response is `200 OK` with the reason. |
-| The second write fails — the customer is inserted, the application insert then hits a constraint violation or a dropped connection | Both rows go through one `SaveChangesAsync` inside the transaction, so the exception propagates out of `ExecuteInTransactionAsync`, `await using` rolls the transaction back on disposal, and **neither** row persists. `Publish` is never reached, so no event exists. `GlobalExceptionHandler` returns `500` `ProblemDetails` with a `correlationId` and a generic title; the exception detail goes to the logs only. |
+| The second write fails — the customer is inserted, the application insert then hits a constraint violation or a dropped connection | Both rows go through one `SaveChangesAsync` inside the transaction, so the exception propagates out of `ExecuteInTransactionAsync`, `await using` rolls the transaction back on disposal, and **neither** row persists — nor the outbox row, which was part of the same save. No event exists. `GlobalExceptionHandler` returns `500` `ProblemDetails` with a `correlationId` and a generic title; the exception detail goes to the logs only. |
 | A returning customer has no application row | `InvalidOperationException` inside the transaction — same path as above. The unique index and the one-to-one assumption make this a broken invariant, not a normal case. |
-| The external service is down or slow | The applicant is unaffected: the transaction has already committed and the response has already been sent. The resilience pipeline retries; if it gives up, the worker logs `"Failed to deliver the event for customer {CustomerId} after retries."` and continues. The system is now inconsistent with the external service — see the outbox limitation above. |
+| The external service is down or slow | The applicant is unaffected: the transaction has already committed and the response has already been sent. The resilience pipeline retries; if it gives up, the processor logs the failure and the outbox row stays pending. It is delivered on a later poll once the service is back. |
+| The API process dies after the commit | The event is in `outbox_messages`. The processor picks it up when the API starts again. |
 | The database is unreachable at startup | `DatabaseInitializer` throws from `StartAsync` and the host fails to start, loudly, rather than serving requests against a database that is not there. |
 
 `TransactionTests` in the integration suite proves this against a real PostgreSQL container:
 the customer row is written and asserted visible *inside* the transaction, then a failure is
-forced, and a second connection sees both tables empty.
+forced, and a second connection sees both tables and the outbox empty. `OutboxProcessorTests`
+proves a delivered message is sent once and marked processed, and a failed one stays pending.
 
 ---
 
 ## 5. Data model and SSN handling
 
-Three tables, created by a single EF Core migration that runs at startup:
+Four tables, created by EF Core migrations that run at startup:
 
 ```sql
 customers (
@@ -267,6 +263,10 @@ applications (
 CREATE UNIQUE INDEX ix_applications_customer_id ON applications (customer_id);
 
 blacklisted_ssns ( ssn_hash text PK, note varchar(200) )
+
+outbox_messages (
+  id uuid PK, payload jsonb, created_at timestamptz, processed_at timestamptz NULL )
+CREATE INDEX ix_outbox_messages_pending ON outbox_messages (created_at) WHERE processed_at IS NULL;
 ```
 
 The address is an EF Core owned type: an `Address` value object in the Domain, four columns on
@@ -333,7 +333,8 @@ this well.
 
 | Decision | Alternative | Why this one |
 |---|---|---|
-| In-process `Channel<T>` for events | Transactional outbox | Satisfies "processed in the background" without a table, a poller, and an idempotency contract. The event loss window is documented in section 3 rather than hidden. |
+| Transactional outbox polled by a `BackgroundService` | In-process `Channel<T>`, or a message broker | The challenge requires the event to be in the same transaction as the records. A channel is written after the commit and lost if the process dies; a broker cannot join a PostgreSQL transaction without an outbox anyway. One table and one poller is the smallest thing that meets the requirement. |
+| One idempotent `PUT` upsert to the external service | Separate `POST` create and `PUT` update | At-least-once delivery needs an idempotent receiver, and an upsert does not depend on both sides agreeing on whether the customer already exists. See section 3. |
 | One customer to one application, enforced by a unique index | One customer to many applications | The challenge says update the returning customer's records instead of duplicating them. The unique index makes the assumption explicit and enforced instead of implied by handler code. |
 | HMAC-hashed SSN + last four | Plaintext SSN column | Keeps the SSN out of the database while preserving a single indexed lookup. See section 5. |
 | `200 OK` for a denial | `422 Unprocessable Entity` | A denial is a valid business answer to a well-formed request. The client did nothing wrong, so it is not a 4xx. `400` is reserved for a malformed body. |

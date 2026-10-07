@@ -60,11 +60,20 @@ public class SubmitLoanApplicationHandlerTests
     private sealed class PassThroughUnitOfWork : IUnitOfWork
     {
         public int Invocations { get; private set; }
+        public bool InTransaction { get; private set; }
 
-        public Task<T> ExecuteInTransactionAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken ct)
+        public async Task<T> ExecuteInTransactionAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken ct)
         {
             Invocations++;
-            return operation(ct);
+            InTransaction = true;
+            try
+            {
+                return await operation(ct);
+            }
+            finally
+            {
+                InTransaction = false;
+            }
         }
     }
 
@@ -74,11 +83,16 @@ public class SubmitLoanApplicationHandlerTests
             throw new InvalidOperationException("commit failed");
     }
 
-    private sealed class RecordingPublisher : IEventPublisher
+    private sealed class RecordingPublisher(PassThroughUnitOfWork? unitOfWork = null) : IEventPublisher
     {
         public List<CustomerUpsertedEvent> Published { get; } = [];
+        public List<bool> PublishedInsideTransaction { get; } = [];
 
-        public void Publish(CustomerUpsertedEvent evt) => Published.Add(evt);
+        public void Publish(CustomerUpsertedEvent evt)
+        {
+            Published.Add(evt);
+            PublishedInsideTransaction.Add(unitOfWork?.InTransaction ?? false);
+        }
     }
 
     private static SubmitLoanApplicationHandler CreateHandler(
@@ -159,34 +173,51 @@ public class SubmitLoanApplicationHandlerTests
     }
 
     [Fact]
-    public async Task An_approval_publishes_exactly_one_event_marked_as_a_create()
+    public async Task An_approval_publishes_exactly_one_event_for_the_new_records()
     {
+        var customers = new FakeCustomerRepository();
+        var applications = new FakeApplicationRepository();
         var publisher = new RecordingPublisher();
-        var handler = CreateHandler(denies: false, new FakeCustomerRepository(), new FakeApplicationRepository(),
-            new PassThroughUnitOfWork(), publisher);
+        var handler = CreateHandler(denies: false, customers, applications, new PassThroughUnitOfWork(), publisher);
 
         await handler.HandleAsync(CommandInState(), CancellationToken.None);
 
         var evt = Assert.Single(publisher.Published);
-        Assert.False(evt.IsUpdate);
+        Assert.Equal(customers.Added[0].Id, evt.CustomerId);
+        Assert.Equal(applications.Added[0].Id, evt.ApplicationId);
     }
 
     [Fact]
-    public async Task A_returning_customer_publishes_an_event_marked_as_an_update()
+    public async Task A_returning_customer_publishes_an_event_for_the_existing_records()
     {
         var existingCustomer = Customer.Create(
             new SsnHash("hash:123456789"), "6789", "Ada", "Lovelace", "Old Company LLC",
             new Address("1 Byron Street", "Austin", "TX", "78701"), Now.AddYears(-1));
+        var existingApplication = LoanApplication.Create(existingCustomer.Id, 10_000m, Now.AddYears(-1));
         var publisher = new RecordingPublisher();
         var handler = CreateHandler(denies: false,
             new FakeCustomerRepository(existingCustomer),
-            new FakeApplicationRepository(LoanApplication.Create(existingCustomer.Id, 10_000m, Now.AddYears(-1))),
+            new FakeApplicationRepository(existingApplication),
             new PassThroughUnitOfWork(), publisher);
 
         await handler.HandleAsync(CommandInState(), CancellationToken.None);
 
         var evt = Assert.Single(publisher.Published);
-        Assert.True(evt.IsUpdate);
+        Assert.Equal(existingCustomer.Id, evt.CustomerId);
+        Assert.Equal(existingApplication.Id, evt.ApplicationId);
+    }
+
+    [Fact]
+    public async Task The_event_is_published_inside_the_transaction()
+    {
+        var unitOfWork = new PassThroughUnitOfWork();
+        var publisher = new RecordingPublisher(unitOfWork);
+        var handler = CreateHandler(denies: false, new FakeCustomerRepository(), new FakeApplicationRepository(),
+            unitOfWork, publisher);
+
+        await handler.HandleAsync(CommandInState(), CancellationToken.None);
+
+        Assert.True(Assert.Single(publisher.PublishedInsideTransaction));
     }
 
     [Fact]

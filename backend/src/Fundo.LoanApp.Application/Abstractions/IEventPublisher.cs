@@ -3,7 +3,9 @@ using Fundo.LoanApp.Domain.Events;
 namespace Fundo.LoanApp.Application.Abstractions;
 
 /// <summary>
-/// Hands the event off for processing outside the request. Implementations must not block.
+/// Records the event as part of the current unit of work. It must be called inside
+/// <see cref="IUnitOfWork.ExecuteInTransactionAsync{T}"/>: the event is stored only if that
+/// transaction commits, and it is delivered later, outside the request.
 /// </summary>
 public interface IEventPublisher
 {

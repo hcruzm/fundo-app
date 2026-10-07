@@ -5,7 +5,7 @@ using Fundo.LoanApp.Domain.Events;
 namespace Fundo.LoanApp.Infrastructure.ExternalService;
 
 /// <summary>
-/// Turns a committed event into the external service call. It re-reads from the database
+/// Turns a delivered outbox event into the external service call. It re-reads from the database
 /// rather than trusting data carried on the event, so it always sends the committed state.
 /// </summary>
 public sealed class CustomerUpsertedDispatcher(
@@ -34,13 +34,6 @@ public sealed class CustomerUpsertedDispatcher(
                 customer.Address.PostalCode),
             new ApplicationPayload(application.Id, application.RequestedAmount, application.Status.ToString()));
 
-        if (evt.IsUpdate)
-        {
-            await client.UpdateAsync(payload, ct);
-        }
-        else
-        {
-            await client.CreateAsync(payload, ct);
-        }
+        await client.UpsertAsync(payload, ct);
     }
 }

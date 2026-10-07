@@ -11,27 +11,13 @@ public class ExternalServiceClientTests
         new ApplicationPayload(Guid.NewGuid(), 25_000m, "Approved"));
 
     [Fact]
-    public async Task CreateAsync_posts_to_the_collection_route()
+    public async Task UpsertAsync_puts_to_the_item_route_keyed_by_the_ssn_hash()
     {
         var handler = new RecordingHandler();
         var client = new ExternalServiceClient(
             new HttpClient(handler) { BaseAddress = new Uri("http://external.test") });
 
-        await client.CreateAsync(SamplePayload(), CancellationToken.None);
-
-        var request = Assert.Single(handler.Requests);
-        Assert.Equal(HttpMethod.Post, request.Method);
-        Assert.Equal("/api/customers", request.RequestUri?.AbsolutePath);
-    }
-
-    [Fact]
-    public async Task UpdateAsync_puts_to_the_item_route_keyed_by_the_ssn_hash()
-    {
-        var handler = new RecordingHandler();
-        var client = new ExternalServiceClient(
-            new HttpClient(handler) { BaseAddress = new Uri("http://external.test") });
-
-        await client.UpdateAsync(SamplePayload(), CancellationToken.None);
+        await client.UpsertAsync(SamplePayload(), CancellationToken.None);
 
         var request = Assert.Single(handler.Requests);
         Assert.Equal(HttpMethod.Put, request.Method);
@@ -39,14 +25,14 @@ public class ExternalServiceClientTests
     }
 
     [Fact]
-    public async Task A_failed_response_throws_so_the_worker_can_log_it()
+    public async Task A_failed_response_throws_so_the_message_stays_in_the_outbox()
     {
         var handler = new FailingHandler();
         var client = new ExternalServiceClient(
             new HttpClient(handler) { BaseAddress = new Uri("http://external.test") });
 
         await Assert.ThrowsAsync<HttpRequestException>(
-            () => client.CreateAsync(SamplePayload(), CancellationToken.None));
+            () => client.UpsertAsync(SamplePayload(), CancellationToken.None));
     }
 
     private sealed class FailingHandler : HttpMessageHandler

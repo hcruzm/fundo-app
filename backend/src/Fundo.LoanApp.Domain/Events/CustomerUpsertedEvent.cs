@@ -1,7 +1,6 @@
 namespace Fundo.LoanApp.Domain.Events;
 
 /// <summary>
-/// Raised after an approved application has been committed. <see cref="IsUpdate"/> tells the
-/// external service whether to create or replace its copy of the customer.
+/// Raised when an approved application creates or updates a customer and their application.
 /// </summary>
-public sealed record CustomerUpsertedEvent(Guid CustomerId, Guid ApplicationId, bool IsUpdate);
+public sealed record CustomerUpsertedEvent(Guid CustomerId, Guid ApplicationId);

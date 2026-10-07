@@ -1,5 +1,7 @@
 using Fundo.LoanApp.Domain.Applications;
 using Fundo.LoanApp.Domain.Customers;
+using Fundo.LoanApp.Domain.Events;
+using Fundo.LoanApp.Infrastructure.Messaging;
 using Fundo.LoanApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,22 +17,26 @@ public class TransactionTests(PostgresFixture fixture) : IClassFixture<PostgresF
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
-    public async Task A_committed_transaction_persists_both_records()
+    public async Task A_committed_transaction_persists_both_records_and_the_event()
     {
         await using var db = fixture.CreateDbContext();
         var unitOfWork = new EfUnitOfWork(db);
+        var publisher = new OutboxEventPublisher(db, TimeProvider.System);
 
         await unitOfWork.ExecuteInTransactionAsync(_ =>
         {
             var customer = Customer.Create(new SsnHash("hash-ok"), "6789", "Ada", "Lovelace", "Engines LLC", AnyAddress, Now);
+            var application = LoanApplication.Create(customer.Id, 25_000m, Now);
             db.Customers.Add(customer);
-            db.Applications.Add(LoanApplication.Create(customer.Id, 25_000m, Now));
+            db.Applications.Add(application);
+            publisher.Publish(new CustomerUpsertedEvent(customer.Id, application.Id));
             return Task.FromResult(0);
         }, CancellationToken.None);
 
         await using var verifyDb = fixture.CreateDbContext();
         Assert.Equal(1, await verifyDb.Customers.CountAsync());
         Assert.Equal(1, await verifyDb.Applications.CountAsync());
+        Assert.Equal(1, await verifyDb.OutboxMessages.CountAsync(m => m.ProcessedAt == null));
     }
 
     [Fact]
@@ -38,23 +44,28 @@ public class TransactionTests(PostgresFixture fixture) : IClassFixture<PostgresF
     {
         await using var db = fixture.CreateDbContext();
         var unitOfWork = new EfUnitOfWork(db);
+        var publisher = new OutboxEventPublisher(db, TimeProvider.System);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             unitOfWork.ExecuteInTransactionAsync<int>(async ct =>
             {
                 var customer = Customer.Create(new SsnHash("hash-rollback"), "6789", "Ada", "Lovelace", "Engines LLC", AnyAddress, Now);
                 db.Customers.Add(customer);
+                publisher.Publish(new CustomerUpsertedEvent(customer.Id, Guid.CreateVersion7()));
 
-                // The row exists inside the transaction at this point.
+                // The rows exist inside the transaction at this point.
                 await db.SaveChangesAsync(ct);
                 Assert.Equal(1, await db.Customers.CountAsync(ct));
+                Assert.Equal(1, await db.OutboxMessages.CountAsync(ct));
 
                 throw new InvalidOperationException("simulated failure while writing the application");
             }, CancellationToken.None));
 
-        // A second connection proves the row never became visible outside the transaction.
+        // A second connection proves the rows never became visible outside the transaction:
+        // no partial customer, no orphan application, and no event to deliver.
         await using var verifyDb = fixture.CreateDbContext();
         Assert.Equal(0, await verifyDb.Customers.CountAsync());
         Assert.Equal(0, await verifyDb.Applications.CountAsync());
+        Assert.Equal(0, await verifyDb.OutboxMessages.CountAsync());
     }
 }
