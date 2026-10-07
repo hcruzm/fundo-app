@@ -41,4 +41,4 @@ internal sealed record ReceivedCustomer(
 
 internal sealed record ReceivedAddress(string Street, string City, string State, string PostalCode);
 
-internal sealed record ReceivedApplication(Guid Id, decimal RequestedAmount, string Status);
+internal sealed record ReceivedApplication(Guid Id, decimal RequestedAmount);

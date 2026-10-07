@@ -23,10 +23,6 @@ public static class LoanApplicationEndpoints
             .Produces<ApplicationDetailResponse>()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        group.MapGet("/", ListAsync)
-            .WithSummary("Returns every stored application, most recently updated first.")
-            .Produces<IReadOnlyList<ApplicationSummaryResponse>>();
-
         return routes;
     }
 
@@ -79,7 +75,6 @@ public static class LoanApplicationEndpoints
             detail.ApplicationId,
             detail.CustomerId,
             detail.RequestedAmount,
-            detail.Status,
             detail.FirstName,
             detail.LastName,
             detail.CompanyName,
@@ -91,31 +86,6 @@ public static class LoanApplicationEndpoints
                 detail.Address.PostalCode),
             detail.CreatedAt,
             detail.UpdatedAt);
-
-        return Results.Ok(response);
-    }
-
-    private static async Task<IResult> ListAsync(
-        ListLoanApplicationsHandler handler,
-        CancellationToken ct)
-    {
-        var summaries = await handler.HandleAsync(ct);
-
-        var response = summaries
-            .Select(summary => new ApplicationSummaryResponse(
-                summary.ApplicationId,
-                summary.CustomerId,
-                summary.FirstName,
-                summary.LastName,
-                summary.CompanyName,
-                summary.RequestedAmount,
-                summary.MaskedSsn,
-                summary.City,
-                summary.State,
-                summary.IsReturningCustomer,
-                summary.CreatedAt,
-                summary.UpdatedAt))
-            .ToList();
 
         return Results.Ok(response);
     }

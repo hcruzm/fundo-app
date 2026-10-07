@@ -1,28 +1,23 @@
-using Fundo.LoanApp.Domain.Applications;
 using Fundo.LoanApp.Domain.Customers;
 
 namespace Fundo.LoanApp.Application.LoanApplications;
 
-public sealed class GetLoanApplicationHandler(
-    ILoanApplicationRepository applications,
-    ICustomerRepository customers)
+public sealed class GetLoanApplicationHandler(ICustomerRepository customers)
 {
     public async Task<LoanApplicationDetail?> HandleAsync(Guid applicationId, CancellationToken ct)
     {
-        var application = await applications.GetByIdAsync(applicationId, ct);
-        if (application is null)
+        var customer = await customers.FindByApplicationIdAsync(applicationId, ct);
+        if (customer is null)
         {
             return null;
         }
 
-        var customer = await customers.GetByIdAsync(application.CustomerId, ct)
-            ?? throw new InvalidOperationException($"Application {applicationId} references a missing customer.");
+        var application = customer.Application;
 
         return new LoanApplicationDetail(
             application.Id,
             customer.Id,
             application.RequestedAmount,
-            application.Status.ToString(),
             customer.FirstName,
             customer.LastName,
             customer.CompanyName,

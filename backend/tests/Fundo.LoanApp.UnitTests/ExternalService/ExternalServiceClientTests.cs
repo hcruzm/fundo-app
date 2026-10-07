@@ -8,7 +8,7 @@ public class ExternalServiceClientTests
     private static CustomerPayload SamplePayload() => new(
         "hash-1", "6789", "Ada", "Lovelace", "Analytical Engines LLC",
         new AddressPayload("1 Byron Street", "Austin", "TX", "78701"),
-        new ApplicationPayload(Guid.NewGuid(), 25_000m, "Approved"));
+        new ApplicationPayload(Guid.NewGuid(), 25_000m));
 
     [Fact]
     public async Task UpsertAsync_puts_to_the_item_route_keyed_by_the_ssn_hash()

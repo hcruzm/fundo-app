@@ -1,3 +1,4 @@
+using Fundo.LoanApp.Domain.Applications;
 using Fundo.LoanApp.Domain.Customers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -37,5 +38,14 @@ public sealed class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         });
 
         builder.Navigation(c => c.Address).IsRequired();
+
+        // One customer, one application: the application is part of the aggregate and is
+        // always loaded with it.
+        builder.HasOne(c => c.Application)
+            .WithOne()
+            .HasForeignKey<LoanApplication>(a => a.CustomerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Navigation(c => c.Application).IsRequired().AutoInclude();
     }
 }

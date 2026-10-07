@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Fundo.LoanApp.Domain.Applications;
 using Fundo.LoanApp.Domain.Customers;
 using Fundo.LoanApp.Domain.Events;
 using Fundo.LoanApp.Infrastructure.ExternalService;
@@ -18,52 +17,25 @@ public class CustomerUpsertedDispatcherTests
         public Task<Customer?> GetByIdAsync(Guid id, CancellationToken ct) =>
             Task.FromResult(id == customer.Id ? customer : null);
 
-        public Task<IReadOnlyList<Customer>> GetAllAsync(CancellationToken ct) =>
-            throw new NotSupportedException();
+        public Task<Customer?> FindByApplicationIdAsync(Guid applicationId, CancellationToken ct) =>
+            Task.FromResult(applicationId == customer.Application.Id ? customer : null);
 
         public void Add(Customer customer) => throw new NotSupportedException();
     }
 
-    private sealed class FakeApplicationRepository(LoanApplication application) : ILoanApplicationRepository
-    {
-        public Task<LoanApplication?> GetByIdAsync(Guid id, CancellationToken ct) =>
-            Task.FromResult(id == application.Id ? application : null);
-
-        public Task<LoanApplication?> GetByCustomerIdAsync(Guid customerId, CancellationToken ct) =>
-            Task.FromResult(customerId == application.CustomerId ? application : null);
-
-        public Task<IReadOnlyList<LoanApplication>> GetAllAsync(CancellationToken ct) =>
-            throw new NotSupportedException();
-
-        public void Add(LoanApplication application) => throw new NotSupportedException();
-    }
-
-    private static (Customer customer, LoanApplication application) SampleRecords()
-    {
-        var customer = Customer.Create(
+    private static Customer SampleCustomer() =>
+        Customer.Create(
             new SsnHash("a1b2c3d4e5f60789fedcba9876543210"), "6789", "Ada", "Lovelace", "Analytical Engines LLC",
-            new Address("1 Byron Street", "Austin", "TX", "78701"), Now);
-        var application = LoanApplication.Create(customer.Id, 25_000m, Now);
-        return (customer, application);
-    }
-
-    private static CustomerUpsertedDispatcher CreateDispatcher(
-        Customer customer, LoanApplication application, RecordingHandler handler, out ExternalServiceClient client)
-    {
-        client = new ExternalServiceClient(new HttpClient(handler) { BaseAddress = new Uri("http://external.test") });
-        return new CustomerUpsertedDispatcher(
-            new FakeCustomerRepository(customer),
-            new FakeApplicationRepository(application),
-            client);
-    }
+            new Address("1 Byron Street", "Austin", "TX", "78701"), 25_000m, Now);
 
     [Fact]
     public async Task An_event_puts_the_committed_records_to_the_item_route_keyed_by_the_ssn_hash()
     {
-        var (customer, application) = SampleRecords();
+        var customer = SampleCustomer();
         var handler = new RecordingHandler();
-        var dispatcher = CreateDispatcher(customer, application, handler, out _);
-        var evt = new CustomerUpsertedEvent(customer.Id, application.Id);
+        var client = new ExternalServiceClient(new HttpClient(handler) { BaseAddress = new Uri("http://external.test") });
+        var dispatcher = new CustomerUpsertedDispatcher(new FakeCustomerRepository(customer), client);
+        var evt = new CustomerUpsertedEvent(customer.Id, customer.Application.Id);
 
         await dispatcher.DispatchAsync(evt, CancellationToken.None);
 

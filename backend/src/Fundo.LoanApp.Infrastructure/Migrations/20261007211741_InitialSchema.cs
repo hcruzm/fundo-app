@@ -46,13 +46,26 @@ namespace Fundo.LoanApp.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "outbox_messages",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    payload = table.Column<string>(type: "jsonb", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    processed_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_outbox_messages", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "applications",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     customer_id = table.Column<Guid>(type: "uuid", nullable: false),
                     requested_amount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
-                    status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
                 },
@@ -78,6 +91,12 @@ namespace Fundo.LoanApp.Infrastructure.Migrations
                 table: "customers",
                 column: "ssn_hash",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_outbox_messages_pending",
+                table: "outbox_messages",
+                column: "created_at",
+                filter: "processed_at IS NULL");
         }
 
         /// <inheritdoc />
@@ -88,6 +107,9 @@ namespace Fundo.LoanApp.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "blacklisted_ssns");
+
+            migrationBuilder.DropTable(
+                name: "outbox_messages");
 
             migrationBuilder.DropTable(
                 name: "customers");

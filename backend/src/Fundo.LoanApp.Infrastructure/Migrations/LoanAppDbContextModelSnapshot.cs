@@ -42,12 +42,6 @@ namespace Fundo.LoanApp.Infrastructure.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("requested_amount");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("status");
-
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -164,8 +158,8 @@ namespace Fundo.LoanApp.Infrastructure.Migrations
             modelBuilder.Entity("Fundo.LoanApp.Domain.Applications.LoanApplication", b =>
                 {
                     b.HasOne("Fundo.LoanApp.Domain.Customers.Customer", null)
-                        .WithMany()
-                        .HasForeignKey("CustomerId")
+                        .WithOne("Application")
+                        .HasForeignKey("Fundo.LoanApp.Domain.Applications.LoanApplication", "CustomerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
@@ -211,6 +205,12 @@ namespace Fundo.LoanApp.Infrastructure.Migrations
                         });
 
                     b.Navigation("Address")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Fundo.LoanApp.Domain.Customers.Customer", b =>
+                {
+                    b.Navigation("Application")
                         .IsRequired();
                 });
 #pragma warning restore 612, 618

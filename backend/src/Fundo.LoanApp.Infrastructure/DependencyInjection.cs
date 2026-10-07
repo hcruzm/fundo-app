@@ -1,6 +1,5 @@
 using Fundo.LoanApp.Application.Abstractions;
 using Fundo.LoanApp.Application.LoanApplications;
-using Fundo.LoanApp.Domain.Applications;
 using Fundo.LoanApp.Domain.Customers;
 using Fundo.LoanApp.Domain.Decisions;
 using Fundo.LoanApp.Domain.Decisions.Rules;
@@ -23,7 +22,6 @@ public static class DependencyInjection
             options.UseNpgsql(configuration.GetConnectionString("Database")));
 
         services.AddScoped<ICustomerRepository, CustomerRepository>();
-        services.AddScoped<ILoanApplicationRepository, LoanApplicationRepository>();
         services.AddScoped<IBlacklistedSsnRepository, BlacklistedSsnRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<BlacklistSeeder>();
@@ -47,7 +45,6 @@ public static class DependencyInjection
 
         services.AddScoped<SubmitLoanApplicationHandler>();
         services.AddScoped<GetLoanApplicationHandler>();
-        services.AddScoped<ListLoanApplicationsHandler>();
 
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IEventPublisher, OutboxEventPublisher>();

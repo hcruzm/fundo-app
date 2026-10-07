@@ -12,4 +12,4 @@ public sealed record CustomerPayload(
 
 public sealed record AddressPayload(string Street, string City, string State, string PostalCode);
 
-public sealed record ApplicationPayload(Guid Id, decimal RequestedAmount, string Status);
+public sealed record ApplicationPayload(Guid Id, decimal RequestedAmount);

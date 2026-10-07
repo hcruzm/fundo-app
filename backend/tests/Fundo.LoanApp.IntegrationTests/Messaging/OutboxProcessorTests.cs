@@ -1,5 +1,4 @@
 using System.Net;
-using Fundo.LoanApp.Domain.Applications;
 using Fundo.LoanApp.Domain.Customers;
 using Fundo.LoanApp.Domain.Events;
 using Fundo.LoanApp.Infrastructure.ExternalService;
@@ -61,11 +60,9 @@ public class OutboxProcessorTests(PostgresFixture fixture) : IClassFixture<Postg
         {
             var customer = Customer.Create(
                 new SsnHash("hash-outbox"), "6789", "Ada", "Lovelace", "Engines LLC",
-                new Address("1 Byron Street", "Austin", "TX", "78701"), Now);
-            var application = LoanApplication.Create(customer.Id, 25_000m, Now);
+                new Address("1 Byron Street", "Austin", "TX", "78701"), 25_000m, Now);
             db.Customers.Add(customer);
-            db.Applications.Add(application);
-            publisher.Publish(new CustomerUpsertedEvent(customer.Id, application.Id));
+            publisher.Publish(new CustomerUpsertedEvent(customer.Id, customer.Application.Id));
             return Task.FromResult(0);
         }, CancellationToken.None);
     }
@@ -77,7 +74,6 @@ public class OutboxProcessorTests(PostgresFixture fixture) : IClassFixture<Postg
         var services = new ServiceCollection();
         services.AddDbContext<LoanAppDbContext>(options => options.UseNpgsql(fixture.ConnectionString));
         services.AddScoped<ICustomerRepository, CustomerRepository>();
-        services.AddScoped<ILoanApplicationRepository, LoanApplicationRepository>();
         services.AddScoped<CustomerUpsertedDispatcher>();
         services.AddScoped(_ => new ExternalServiceClient(
             new HttpClient(externalService) { BaseAddress = new Uri("http://external.test") }));

@@ -1,5 +1,4 @@
 using Fundo.LoanApp.Domain.Customers;
-using Fundo.LoanApp.Domain.Applications;
 using Fundo.LoanApp.Infrastructure.Persistence;
 using Fundo.LoanApp.Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -30,7 +29,7 @@ public class RepositoryTests(PostgresFixture fixture) : IClassFixture<PostgresFi
         await using (var writeDb = fixture.CreateDbContext())
         {
             new CustomerRepository(writeDb).Add(
-                Customer.Create(new SsnHash("hash-1"), "6789", "Ada", "Lovelace", "Analytical Engines LLC", AnyAddress, Now));
+                Customer.Create(new SsnHash("hash-1"), "6789", "Ada", "Lovelace", "Analytical Engines LLC", AnyAddress, 25_000m, Now));
             await writeDb.SaveChangesAsync();
         }
 
@@ -41,6 +40,7 @@ public class RepositoryTests(PostgresFixture fixture) : IClassFixture<PostgresFi
         Assert.Equal("Ada", found.FirstName);
         Assert.Equal(AnyAddress, found.Address);
         Assert.Equal("6789", found.SsnLast4);
+        Assert.Equal(25_000m, found.Application.RequestedAmount);
     }
 
     [Fact]
@@ -49,35 +49,34 @@ public class RepositoryTests(PostgresFixture fixture) : IClassFixture<PostgresFi
         await using var db = fixture.CreateDbContext();
         var repository = new CustomerRepository(db);
 
-        repository.Add(Customer.Create(new SsnHash("hash-2"), "6789", "Ada", "Lovelace", "Engines LLC", AnyAddress, Now));
+        repository.Add(Customer.Create(new SsnHash("hash-2"), "6789", "Ada", "Lovelace", "Engines LLC", AnyAddress, 25_000m, Now));
         await db.SaveChangesAsync();
 
         // A distinct Address instance: the shared static reference would make EF Core's
         // change tracker treat the owned Address as already attached to the first customer.
-        repository.Add(Customer.Create(new SsnHash("hash-2"), "6789", "Augusta", "Byron", "Engines LLC", AnyAddress with { }, Now));
+        repository.Add(Customer.Create(new SsnHash("hash-2"), "6789", "Augusta", "Byron", "Engines LLC", AnyAddress with { }, 25_000m, Now));
 
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
 
     [Fact]
-    public async Task GetByCustomerIdAsync_returns_the_application_of_that_customer()
+    public async Task FindByApplicationIdAsync_returns_the_customer_that_owns_the_application()
     {
-        var customer = Customer.Create(new SsnHash("hash-3"), "6789", "Ada", "Lovelace", "Engines LLC", AnyAddress, Now);
-        var application = LoanApplication.Create(customer.Id, 25_000m, Now);
+        var customer = Customer.Create(new SsnHash("hash-3"), "6789", "Ada", "Lovelace", "Engines LLC", AnyAddress, 25_000m, Now);
 
         await using (var writeDb = fixture.CreateDbContext())
         {
-            writeDb.Customers.Add(customer);
-            writeDb.Applications.Add(application);
+            new CustomerRepository(writeDb).Add(customer);
             await writeDb.SaveChangesAsync();
         }
 
         await using var readDb = fixture.CreateDbContext();
-        var found = await new LoanApplicationRepository(readDb).GetByCustomerIdAsync(customer.Id, CancellationToken.None);
+        var found = await new CustomerRepository(readDb).FindByApplicationIdAsync(customer.Application.Id, CancellationToken.None);
 
         Assert.NotNull(found);
-        Assert.Equal(application.Id, found.Id);
-        Assert.Equal(25_000m, found.RequestedAmount);
+        Assert.Equal(customer.Id, found.Id);
+        Assert.Equal(25_000m, found.Application.RequestedAmount);
+        Assert.Equal(1, await readDb.Applications.CountAsync());
     }
 
     [Fact]

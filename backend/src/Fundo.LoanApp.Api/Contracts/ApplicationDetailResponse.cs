@@ -4,7 +4,6 @@ public sealed record ApplicationDetailResponse(
     Guid ApplicationId,
     Guid CustomerId,
     decimal RequestedAmount,
-    string Status,
     string FirstName,
     string LastName,
     string CompanyName,

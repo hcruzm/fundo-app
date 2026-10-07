@@ -1,4 +1,3 @@
-using Fundo.LoanApp.Domain.Applications;
 using Fundo.LoanApp.Domain.Customers;
 using Fundo.LoanApp.Domain.Events;
 using Fundo.LoanApp.Infrastructure.Messaging;
@@ -25,11 +24,9 @@ public class TransactionTests(PostgresFixture fixture) : IClassFixture<PostgresF
 
         await unitOfWork.ExecuteInTransactionAsync(_ =>
         {
-            var customer = Customer.Create(new SsnHash("hash-ok"), "6789", "Ada", "Lovelace", "Engines LLC", AnyAddress, Now);
-            var application = LoanApplication.Create(customer.Id, 25_000m, Now);
+            var customer = Customer.Create(new SsnHash("hash-ok"), "6789", "Ada", "Lovelace", "Engines LLC", AnyAddress, 25_000m, Now);
             db.Customers.Add(customer);
-            db.Applications.Add(application);
-            publisher.Publish(new CustomerUpsertedEvent(customer.Id, application.Id));
+            publisher.Publish(new CustomerUpsertedEvent(customer.Id, customer.Application.Id));
             return Task.FromResult(0);
         }, CancellationToken.None);
 
@@ -49,16 +46,17 @@ public class TransactionTests(PostgresFixture fixture) : IClassFixture<PostgresF
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             unitOfWork.ExecuteInTransactionAsync<int>(async ct =>
             {
-                var customer = Customer.Create(new SsnHash("hash-rollback"), "6789", "Ada", "Lovelace", "Engines LLC", AnyAddress, Now);
+                var customer = Customer.Create(new SsnHash("hash-rollback"), "6789", "Ada", "Lovelace", "Engines LLC", AnyAddress, 25_000m, Now);
                 db.Customers.Add(customer);
-                publisher.Publish(new CustomerUpsertedEvent(customer.Id, Guid.CreateVersion7()));
+                publisher.Publish(new CustomerUpsertedEvent(customer.Id, customer.Application.Id));
 
                 // The rows exist inside the transaction at this point.
                 await db.SaveChangesAsync(ct);
                 Assert.Equal(1, await db.Customers.CountAsync(ct));
+                Assert.Equal(1, await db.Applications.CountAsync(ct));
                 Assert.Equal(1, await db.OutboxMessages.CountAsync(ct));
 
-                throw new InvalidOperationException("simulated failure while writing the application");
+                throw new InvalidOperationException("simulated failure after the writes");
             }, CancellationToken.None));
 
         // A second connection proves the rows never became visible outside the transaction:
