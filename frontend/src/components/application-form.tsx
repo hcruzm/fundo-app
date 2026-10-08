@@ -82,7 +82,7 @@ export function ApplicationForm() {
                   <FormItem>
                     <FormLabel>First name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ada" autoComplete="given-name" {...field} />
+                      <Input placeholder="Alicia" autoComplete="given-name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -95,7 +95,7 @@ export function ApplicationForm() {
                   <FormItem>
                     <FormLabel>Last name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Lovelace" autoComplete="family-name" {...field} />
+                      <Input placeholder="Justo" autoComplete="family-name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -110,7 +110,7 @@ export function ApplicationForm() {
                 <FormItem>
                   <FormLabel>Company name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Analytical Engines LLC" autoComplete="organization" {...field} />
+                    <Input placeholder="Acme LLC" autoComplete="organization" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -124,7 +124,7 @@ export function ApplicationForm() {
                 <FormItem>
                   <FormLabel>Street</FormLabel>
                   <FormControl>
-                    <Input placeholder="1 Byron Street" autoComplete="address-line1" {...field} />
+                    <Input placeholder="123 Main Street" autoComplete="address-line1" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
