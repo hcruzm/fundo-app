@@ -1,6 +1,6 @@
 # Fundo Loan Application
 
-**Demo video: [watch the walkthrough](https://www.loom.com/share/6d078d8ed30249048750b3716e05fbab)** — an approved application, both denial rules, a returning customer updating in place, and the data arriving at the external service.
+**Demo video: [watch the walkthrough](https://drive.google.com/file/d/17RRMx2BYG6eXjSBhqHpkRuUUUNPnCSU8/view)** — an approved application, both denial rules, a returning customer updating in place, and the data arriving at the external service.
 
 A loan application system in three pieces: a Next.js form, a .NET API, and a mock external
 service standing in for a third party. The API runs each submission through a rule engine,
